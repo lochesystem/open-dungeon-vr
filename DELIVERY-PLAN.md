@@ -299,7 +299,20 @@ O jogador retira espada e escudo, ataca um boneco, bloqueia um golpe mecânico, 
 - [x] Anel e HUD comunicam estado e distância sem painel grande dentro do VR.
 - [ ] Homologar velocidade, alcance de percepção e conforto da perseguição no Meta Quest.
 
-O blockout D4.1 é invulnerável e não ataca. D4.2 adicionará o primeiro ataque corpo a corpo e reação ao escudo sem antecipar vida, stagger, morte ou arte final.
+O blockout D4.1 estabeleceu a locomoção sem ataques; a fatia seguinte conecta essa base ao primeiro ciclo de combate.
+
+### D4.2 — Primeiro ataque corpo a corpo
+
+- [x] Guardião recebe uma maça procedural presa à hierarquia do braço direito.
+- [x] Ciclo explícito de preparo, golpe, recuperação e prontidão reinicia somente dentro do alcance.
+- [x] Ponta da maça usa trajetória varrida para não atravessar escudo ou jogador entre frames.
+- [x] Face e área válidas do escudo interrompem o golpe com áudio e resposta háptica próprios.
+- [x] Erro de defesa causa dano não letal e cada ciclo resolve no máximo uma vez.
+- [x] Treino de projétil estático é suspenso enquanto o Guardião está em alerta ou perseguição.
+- [x] HUD mostra fase do ataque, defesas e golpes recebidos.
+- [ ] Homologar alcance, ritmo, arco e conforto do golpe no Meta Quest.
+
+A D4.3 adicionará vida, reação a dano, stagger, morte e recompensa do Guardião. Refinos avançados de antecipação, parry e stamina continuam adiados.
 
 ### Experiência
 
@@ -458,7 +471,7 @@ O slice não começa do zero: ele amplia uma cadeia já jogável e homologada.
 
 ## 13. Ordem imediata
 
-A etapa ativa é **D4 — Primeiro inimigo completo**. A D4.1 estabelece corpo procedural, patrulha, percepção, perseguição e retorno; a próxima fatia adiciona um ataque corpo a corpo simples e integração com o escudo já validado. Parry e stamina permanecem adiados para uma rodada posterior de refinamento do combate.
+A etapa ativa é **D4 — Primeiro inimigo completo**. A D4.2 fecha o primeiro ciclo de ataque corpo a corpo e a defesa com escudo; a próxima fatia é D4.3, com vida, reação a dano, stagger, morte e recompensa. Parry e stamina permanecem adiados para uma rodada posterior de refinamento do combate.
 
 ## 14. Registro de andamento
 
@@ -468,7 +481,7 @@ A etapa ativa é **D4 — Primeiro inimigo completo**. A D4.1 estabelece corpo p
 | D1 — Mãos e objeto | Concluída | Grab, handoff, arremesso, alvo, recuperação e homologação inicial no Quest |
 | D2 — Bolsa e itens | Concluída | Bolsa 3×2, categorias, poção consumível, chave, recuperação e vida no pulso |
 | D3 — Combate estático | Em andamento | D3.3: espada livre, boneco imortal, escudo e bloqueio direcional |
-| D4 — Primeiro inimigo | Em andamento | D4.1: blockout, patrulha, percepção, perseguição e retorno |
+| D4 — Primeiro inimigo | Em andamento | D4.2: golpe de maça, trajetória varrida, bloqueio e dano não letal |
 | D5 — Sala completa | Não iniciada | — |
 | D6 — Micro-expedição | Não iniciada | — |
 | D7 — Quest e conforto | Não iniciada | — |

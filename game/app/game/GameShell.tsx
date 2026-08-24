@@ -18,6 +18,13 @@ const ENEMY_STATE_LABEL = {
   return: 'RETORNO',
 } as const;
 
+const ENEMY_ATTACK_LABEL = {
+  ready: 'PRONTO',
+  windup: 'PREPARO',
+  swing: 'GOLPE',
+  recover: 'RECUPERAÇÃO',
+} as const;
+
 type ComfortControlsProps = {
   comfort: ComfortSettings;
   onChange: <Key extends keyof ComfortSettings>(key: Key, value: ComfortSettings[Key]) => void;
@@ -85,6 +92,9 @@ export function GameShell() {
     receivedAttacks: 0,
     enemyState: 'idle',
     enemyDistance: 0,
+    enemyAttackPhase: 'ready',
+    enemyBlockedAttacks: 0,
+    enemyHits: 0,
     status: 'Encontre a espada e derrote o boneco de treinamento.',
   });
 
@@ -196,6 +206,7 @@ export function GameShell() {
             <span>06 · Espada e treino</span>
             <span>07 · Escudo direcional</span>
             <span>08 · IA do Guardião</span>
+            <span>09 · Golpe e bloqueio</span>
           </div>
           <p className="notice" role="status">{notice}</p>
         </section>
@@ -219,9 +230,9 @@ export function GameShell() {
             <span><kbd>ESC</kbd> pausar</span>
           </aside>
           <aside className="objective-card" aria-label="Objetivo da sala">
-            <span>OBJETIVO D4.1 · IA A {interaction.enemyDistance.toFixed(1)} M</span>
-            <strong>{ENEMY_STATE_LABEL[interaction.enemyState]}</strong>
-            <small>Aproxime-se, afaste-se e observe o retorno à patrulha</small>
+            <span>OBJETIVO D4.2 · GUARDIÃO A {interaction.enemyDistance.toFixed(1)} M</span>
+            <strong>{ENEMY_STATE_LABEL[interaction.enemyState]} · {ENEMY_ATTACK_LABEL[interaction.enemyAttackPhase]}</strong>
+            <small>Defesas {interaction.enemyBlockedAttacks} · golpes recebidos {interaction.enemyHits}</small>
           </aside>
           <p className="play-notice" role="status">{interaction.status || notice}</p>
         </>
@@ -241,7 +252,7 @@ export function GameShell() {
         </section>
       )}
 
-      <footer className="build-label">BUILD D4.1 · LOCAL · {xrActive ? 'XR ATIVO' : 'DESKTOP'}</footer>
+      <footer className="build-label">BUILD D4.2 · LOCAL · {xrActive ? 'XR ATIVO' : 'DESKTOP'}</footer>
     </main>
   );
 }

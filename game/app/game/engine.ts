@@ -36,6 +36,16 @@ import { secondarySwordGripAnchor, swordGripAnchor, uprightSwordGripOffset } fro
 import { directionalShieldBlock } from './shieldCombat';
 import { heldShieldPosition, heldShieldRotation } from './shieldGrip';
 import { enemyStateLabel, enemyStepToward, nextEnemyState, type EnemyState } from './enemyAI';
+import {
+  ENEMY_ATTACK_RANGE,
+  ENEMY_RECOVER_SECONDS,
+  ENEMY_SWING_SECONDS,
+  ENEMY_WINDUP_SECONDS,
+  canResolveEnemyAttack,
+  enemyAttackArmAngle,
+  nextEnemyAttackPhase,
+  type EnemyAttackPhase,
+} from './enemyCombat';
 import { createVrSessionInit } from './xrSession';
 
 export type InteractionSnapshot = {
@@ -54,6 +64,9 @@ export type InteractionSnapshot = {
   receivedAttacks: number;
   enemyState: EnemyState;
   enemyDistance: number;
+  enemyAttackPhase: EnemyAttackPhase;
+  enemyBlockedAttacks: number;
+  enemyHits: number;
   status: string;
 };
 
@@ -293,6 +306,7 @@ export class OpenDungeonEngine {
   private readonly guardianRightArm: THREE.Group;
   private readonly guardianLeftLeg: THREE.Group;
   private readonly guardianRightLeg: THREE.Group;
+  private readonly guardianWeaponTip: THREE.Object3D;
   private readonly guardianStateMaterial: THREE.MeshBasicMaterial;
   private targetHits = 0;
   private targetPulseSeconds = 0;
@@ -320,6 +334,18 @@ export class OpenDungeonEngine {
   private enemyPatrolIndex = 1;
   private enemyDistance = Number.POSITIVE_INFINITY;
   private enemyTravelSeconds = 0;
+  private enemyAttackPhase: EnemyAttackPhase = 'ready';
+  private enemyAttackSeconds = 0;
+  private enemyAttackResolved = false;
+  private enemyWeaponTipReady = false;
+  private readonly enemyWeaponTipPosition = new THREE.Vector3();
+  private readonly previousEnemyWeaponTipPosition = new THREE.Vector3();
+  private readonly enemyShieldCenter = new THREE.Vector3();
+  private readonly enemyShieldNormal = new THREE.Vector3();
+  private readonly enemyPlayerTarget = new THREE.Vector3();
+  private readonly enemyShieldQuaternion = new THREE.Quaternion();
+  private enemyBlockedAttacks = 0;
+  private enemyHits = 0;
   private drinkProgress = 0;
   private hazardOccupied = false;
   private hazardPulseSeconds = 0;
@@ -410,6 +436,7 @@ export class OpenDungeonEngine {
     this.guardianRightArm = interactables.guardianRightArm;
     this.guardianLeftLeg = interactables.guardianLeftLeg;
     this.guardianRightLeg = interactables.guardianRightLeg;
+    this.guardianWeaponTip = interactables.guardianWeaponTip;
     this.guardianStateMaterial = interactables.guardianStateMaterial;
     this.bagMenuMaterial = this.basicMaterial({
       color: 0x102b28,
@@ -956,6 +983,21 @@ export class OpenDungeonEngine {
       }
       guardianBody.add(limb);
     }
+    const maceHandle = new THREE.Mesh(
+      this.geometry(new THREE.CylinderGeometry(0.035, 0.045, 0.62, 10)),
+      bronze,
+    );
+    maceHandle.position.y = -0.79;
+    const maceHead = new THREE.Mesh(
+      this.geometry(new THREE.DodecahedronGeometry(0.17, 0)),
+      guardianArmor,
+    );
+    maceHead.position.y = -1.09;
+    maceHead.scale.set(1.15, 0.9, 1.15);
+    const guardianWeaponTip = new THREE.Object3D();
+    guardianWeaponTip.name = 'guardian-mace-impact-point';
+    guardianWeaponTip.position.y = -1.14;
+    guardianRightArm.add(maceHandle, maceHead, guardianWeaponTip);
     const guardianStateMaterial = this.basicMaterial({
       color: 0x6de7bf,
       transparent: true,
@@ -1053,6 +1095,7 @@ export class OpenDungeonEngine {
       guardianRightArm,
       guardianLeftLeg,
       guardianRightLeg,
+      guardianWeaponTip,
       guardianStateMaterial,
       hazardMaterial,
       door,
@@ -1397,6 +1440,7 @@ export class OpenDungeonEngine {
     this.updateDoor(delta);
     this.updateGuardian(delta, resolved);
     this.updateAdventureObject(delta, nowSeconds);
+    this.updateGuardianAttack(delta);
   }
 
   private updateHazard(delta: number, player: { x: number; z: number }) {
@@ -1532,6 +1576,106 @@ export class OpenDungeonEngine {
     }[this.enemyState];
     this.guardianStateMaterial.color.setHex(stateColor);
     this.guardianStateMaterial.opacity = this.enemyState === 'alert' ? 0.95 : 0.7;
+  }
+
+  private enemyAttackDuration(phase: EnemyAttackPhase) {
+    if (phase === 'windup') return ENEMY_WINDUP_SECONDS;
+    if (phase === 'swing') return ENEMY_SWING_SECONDS;
+    if (phase === 'recover') return ENEMY_RECOVER_SECONDS;
+    return 0;
+  }
+
+  private enterEnemyAttackPhase(phase: EnemyAttackPhase) {
+    this.enemyAttackPhase = phase;
+    this.enemyAttackSeconds = this.enemyAttackDuration(phase);
+    if (phase === 'windup') {
+      this.enemyAttackResolved = false;
+      this.enemyWeaponTipReady = false;
+      this.playTone(175, 0.12, 0.035);
+      this.emitInteraction('Guardião preparando golpe · recue ou levante o escudo.');
+    } else if (phase === 'swing') {
+      this.enemyWeaponTipReady = false;
+      this.playTone(105, 0.1, 0.055);
+    }
+  }
+
+  private updateGuardianAttack(delta: number) {
+    const canAttack = this.enemyState === 'chase' && this.enemyDistance <= ENEMY_ATTACK_RANGE;
+    if (!canAttack) {
+      if (this.enemyAttackPhase !== 'ready') this.enemyAttackPhase = nextEnemyAttackPhase(this.enemyAttackPhase, false, false);
+      this.enemyAttackSeconds = 0;
+      this.enemyAttackResolved = false;
+      this.enemyWeaponTipReady = false;
+      return;
+    }
+
+    if (this.enemyAttackPhase === 'ready') this.enterEnemyAttackPhase('windup');
+    this.enemyAttackSeconds = Math.max(0, this.enemyAttackSeconds - delta);
+    const duration = this.enemyAttackDuration(this.enemyAttackPhase);
+    const progress = duration > 0 ? 1 - this.enemyAttackSeconds / duration : 1;
+    this.guardianRightArm.rotation.x = enemyAttackArmAngle(this.enemyAttackPhase, progress);
+
+    if (this.enemyAttackPhase === 'swing') {
+      this.guardian.updateMatrixWorld(true);
+      this.guardianWeaponTip.getWorldPosition(this.enemyWeaponTipPosition);
+      if (!this.enemyWeaponTipReady) {
+        this.previousEnemyWeaponTipPosition.copy(this.enemyWeaponTipPosition);
+        this.enemyWeaponTipReady = true;
+      } else if (!this.enemyAttackResolved) {
+        const shield = this.items.get('shield')!;
+        const shieldHolder = shield.state.holder;
+        let blocked = false;
+        if (shieldHolder) {
+          shield.object.updateMatrixWorld(true);
+          shield.object.getWorldPosition(this.enemyShieldCenter);
+          shield.object.getWorldQuaternion(this.enemyShieldQuaternion);
+          this.enemyShieldNormal.set(0, 0, 1).applyQuaternion(this.enemyShieldQuaternion).normalize();
+          blocked = directionalShieldBlock({
+            attackPrevious: this.previousEnemyWeaponTipPosition,
+            attackCurrent: this.enemyWeaponTipPosition,
+            shieldCenter: this.enemyShieldCenter,
+            shieldNormal: this.enemyShieldNormal,
+            shieldRadius: 0.46,
+            minimumFacingDot: 0.32,
+          });
+        }
+
+        if (canResolveEnemyAttack(this.enemyAttackResolved, blocked)) {
+          this.enemyAttackResolved = true;
+          this.enemyBlockedAttacks += 1;
+          this.playTone(230, 0.06, 0.08);
+          this.playTone(790, 0.14, 0.065, 0.035);
+          if (shieldHolder) this.pulseController(shieldHolder, 0.82, 125);
+          this.emitInteraction(`Maça bloqueada pelo escudo · ${this.enemyBlockedAttacks} defesa${this.enemyBlockedAttacks === 1 ? '' : 's'} contra o Guardião.`);
+          this.enterEnemyAttackPhase('recover');
+          return;
+        }
+
+        this.camera.getWorldPosition(this.enemyPlayerTarget);
+        this.enemyPlayerTarget.y -= 0.34;
+        const hitPlayer = sweptSphereHit(
+          this.previousEnemyWeaponTipPosition,
+          this.enemyWeaponTipPosition,
+          this.enemyPlayerTarget,
+          0.43,
+        );
+        if (canResolveEnemyAttack(this.enemyAttackResolved, hitPlayer)) {
+          this.enemyAttackResolved = true;
+          this.enemyHits += 1;
+          this.health = applyNonLethalHazard(this.health);
+          this.playTone(118, 0.19, 0.085);
+          this.pulseControllers(0.62, 105);
+          this.emitInteraction(`Golpe da maça recebido · vida ${this.health}/${MAX_HEALTH}. O treino não pode matar.`);
+          this.enterEnemyAttackPhase('recover');
+          return;
+        }
+        this.previousEnemyWeaponTipPosition.copy(this.enemyWeaponTipPosition);
+      }
+    }
+
+    if (this.enemyAttackSeconds > 0) return;
+    const nextPhase = nextEnemyAttackPhase(this.enemyAttackPhase, true, canAttack);
+    this.enterEnemyAttackPhase(nextPhase);
   }
 
   private updateAdventureObject(delta: number, nowSeconds: number) {
@@ -1844,7 +1988,7 @@ export class OpenDungeonEngine {
   private updateShieldTraining(delta: number) {
     const shield = this.items.get('shield')!;
     const holder = shield.state.holder;
-    if (!holder) {
+    if (!holder || this.enemyState === 'alert' || this.enemyState === 'chase') {
       this.trainingBolt.visible = false;
       this.shieldAttackPhase = 'waiting';
       this.shieldAttackTimer = 0;
@@ -2686,6 +2830,12 @@ export class OpenDungeonEngine {
     this.enemyPatrolIndex = 1;
     this.enemyDistance = Number.POSITIVE_INFINITY;
     this.enemyTravelSeconds = 0;
+    this.enemyAttackPhase = 'ready';
+    this.enemyAttackSeconds = 0;
+    this.enemyAttackResolved = false;
+    this.enemyWeaponTipReady = false;
+    this.enemyBlockedAttacks = 0;
+    this.enemyHits = 0;
     this.guardian.position.copy(GUARDIAN_HOME);
     this.guardian.rotation.set(0, 0, 0);
     this.guardianBody.position.set(0, 0, 0);
@@ -2768,6 +2918,9 @@ export class OpenDungeonEngine {
       receivedAttacks: this.receivedAttacks,
       enemyState: this.enemyState,
       enemyDistance: Number.isFinite(this.enemyDistance) ? Math.round(this.enemyDistance * 10) / 10 : 0,
+      enemyAttackPhase: this.enemyAttackPhase,
+      enemyBlockedAttacks: this.enemyBlockedAttacks,
+      enemyHits: this.enemyHits,
       status,
     };
     const signature = JSON.stringify(snapshot);
@@ -2777,6 +2930,9 @@ export class OpenDungeonEngine {
   }
 
   private contextualStatus(fallback: string) {
+    if (this.enemyAttackPhase === 'windup') return 'Guardião preparando golpe · recue ou levante a face do escudo.';
+    if (this.enemyAttackPhase === 'swing') return 'Maça em movimento · saia do arco ou intercepte com o escudo.';
+    if (this.enemyAttackPhase === 'recover') return 'Guardião se recuperando · o próximo ciclo ainda não começou.';
     const shield = this.items.get('shield');
     if (shield?.state.holder) return `Escudo em mãos · ${this.blockedAttacks} bloqueio${this.blockedAttacks === 1 ? '' : 's'} válido${this.blockedAttacks === 1 ? '' : 's'}. Oriente a face para o ataque.`;
     if (shield && shield.state.storedSlot !== null) return `Escudo guardado no slot ${shield.state.storedSlot + 1} · retire-o para treinar bloqueios.`;

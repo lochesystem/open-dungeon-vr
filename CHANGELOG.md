@@ -17,6 +17,26 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D3 — Laboratório de combate estático.
 
+## [0.12.0] — 2026-08-24
+
+### Adicionado
+
+- Maça procedural integrada ao braço direito do Guardião Ossário.
+- Ciclo reproduzível de preparo, golpe, recuperação e nova prontidão.
+- Trajetória varrida da cabeça da maça contra o escudo e o volume corporal do jogador.
+- Bloqueio direcional com áudio, haptics e contador separado para o encontro.
+- Dano não letal, contador de impactos e garantia de uma única resolução por ciclo.
+- HUD com fase atual do ataque, defesas válidas e golpes recebidos.
+
+### Alterado
+
+- O projétil do treino estático é ocultado e pausado durante alerta ou perseguição do Guardião.
+
+### Validado
+
+- Testes cobrem progressão e cancelamento do ciclo, arco do braço e resolução única do contato.
+- Suíte ampliada para 66 testes.
+
 ## [0.11.0] — 2026-08-24
 
 ### Adicionado
