@@ -73,6 +73,8 @@ export function GameShell() {
     maximumHealth: 3,
     potionConsumed: false,
     dummyHits: 0,
+    blockedAttacks: 0,
+    receivedAttacks: 0,
     status: 'Encontre a espada e derrote o boneco de treinamento.',
   });
 
@@ -116,7 +118,7 @@ export function GameShell() {
 
   const playDesktop = useCallback(() => {
     engineRef.current?.reset();
-    setNotice('Encontre a espada e acerte três golpes válidos no boneco de treinamento.');
+    setNotice('Use a espada no boneco ou pegue o escudo à direita para treinar bloqueios direcionais.');
     setScreen('playing');
   }, []);
 
@@ -182,6 +184,7 @@ export function GameShell() {
             <span>04 · Chave e passagem</span>
             <span>05 · Poção e vida</span>
             <span>06 · Espada e treino</span>
+            <span>07 · Escudo direcional</span>
           </div>
           <p className="notice" role="status">{notice}</p>
         </section>
@@ -205,9 +208,9 @@ export function GameShell() {
             <span><kbd>ESC</kbd> pausar</span>
           </aside>
           <aside className="objective-card" aria-label="Objetivo da sala">
-            <span>OBJETIVO D3.2 · GOLPES {interaction.dummyHits}</span>
-            <strong>BONECO IMORTAL</strong>
-            <small>Pegue em qualquer ponto · uma ou duas mãos</small>
+            <span>OBJETIVO D3.3 · BLOQUEIOS {interaction.blockedAttacks}</span>
+            <strong>ESCUDO DIRECIONAL</strong>
+            <small>Face válida · erros {interaction.receivedAttacks} · golpes no boneco {interaction.dummyHits}</small>
           </aside>
           <p className="play-notice" role="status">{interaction.status || notice}</p>
         </>
@@ -227,7 +230,7 @@ export function GameShell() {
         </section>
       )}
 
-      <footer className="build-label">BUILD D3.2 · LOCAL · {xrActive ? 'XR ATIVO' : 'DESKTOP'}</footer>
+      <footer className="build-label">BUILD D3.3 · LOCAL · {xrActive ? 'XR ATIVO' : 'DESKTOP'}</footer>
     </main>
   );
 }

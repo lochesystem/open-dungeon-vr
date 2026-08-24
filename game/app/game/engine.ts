@@ -33,6 +33,7 @@ import {
 import { META_QUEST_PRIMARY_FACE_BUTTON, buttonPressedOnRisingEdge } from './vrInput';
 import { moveVrMenuSelection, vrPauseButtonPressed } from './vrPauseMenu';
 import { secondarySwordGripAnchor, swordGripAnchor } from './swordGrip';
+import { directionalShieldBlock } from './shieldCombat';
 import { createVrSessionInit } from './xrSession';
 
 export type InteractionSnapshot = {
@@ -47,6 +48,8 @@ export type InteractionSnapshot = {
   maximumHealth: number;
   potionConsumed: boolean;
   dummyHits: number;
+  blockedAttacks: number;
+  receivedAttacks: number;
   status: string;
 };
 
@@ -89,6 +92,7 @@ const CUBE_HOME = new THREE.Vector3(3, 1.27, 4.2);
 const KEY_HOME = new THREE.Vector3(-3, 1.2, 4.2);
 const POTION_HOME = new THREE.Vector3(0, 1.22, 4.15);
 const SWORD_HOME = new THREE.Vector3(-5.1, 1.08, 1.7);
+const SHIELD_HOME = new THREE.Vector3(5.1, 1.12, 1.7);
 const HAZARD_POSITION = new THREE.Vector3(0, 0, 5.45);
 const HAZARD_RADIUS = 0.72;
 const MAX_HEALTH = 3;
@@ -168,6 +172,16 @@ const SWORD_RACK_COLLIDER: BoxCollider = {
   rotation: 0,
 };
 
+const SHIELD_RACK_COLLIDER: BoxCollider = {
+  kind: 'box',
+  id: 'foundation-shield-rack',
+  x: SHIELD_HOME.x,
+  z: SHIELD_HOME.z,
+  halfX: 0.45,
+  halfZ: 0.21,
+  rotation: 0,
+};
+
 const TRAINING_DUMMY_COLLIDER: CircleCollider = {
   kind: 'circle',
   id: 'training-dummy',
@@ -194,10 +208,11 @@ const ROOM_COLLIDERS: StaticCollider[] = [
   KEY_PEDESTAL_COLLIDER,
   POTION_PEDESTAL_COLLIDER,
   SWORD_RACK_COLLIDER,
+  SHIELD_RACK_COLLIDER,
   TRAINING_DUMMY_COLLIDER,
 ];
 
-type ItemId = 'cube' | 'key' | 'potion' | 'sword';
+type ItemId = 'cube' | 'key' | 'potion' | 'sword' | 'shield';
 
 type ItemRuntime = {
   id: ItemId;
@@ -258,6 +273,8 @@ export class OpenDungeonEngine {
   private readonly targetCore: THREE.Mesh;
   private readonly trainingDummy: THREE.Group;
   private readonly dummyMaterial: THREE.MeshStandardMaterial;
+  private readonly trainingBolt: THREE.Mesh;
+  private readonly trainingBoltMaterial: THREE.MeshStandardMaterial;
   private targetHits = 0;
   private targetPulseSeconds = 0;
   private lastInteractionSignature = '';
@@ -272,6 +289,13 @@ export class OpenDungeonEngine {
   private readonly previousSwordTip = new THREE.Vector3();
   private swordTipReady = false;
   private readonly swordGripAnchors = new Map<Holder, THREE.Vector3>();
+  private blockedAttacks = 0;
+  private receivedAttacks = 0;
+  private shieldAttackPhase: 'waiting' | 'telegraph' | 'flight' | 'cooldown' = 'waiting';
+  private shieldAttackTimer = 0;
+  private readonly shieldAttackOrigin = new THREE.Vector3();
+  private readonly shieldAttackTarget = new THREE.Vector3();
+  private readonly previousTrainingBoltPosition = new THREE.Vector3();
   private drinkProgress = 0;
   private hazardOccupied = false;
   private hazardPulseSeconds = 0;
@@ -344,6 +368,9 @@ export class OpenDungeonEngine {
     this.items.set('sword', this.createItemRuntime(
       'sword', 'Espada da fundação', interactables.sword, interactables.swordMaterial, SWORD_HOME, 0.13, INVENTORY_PREVIEW_SCALE.sword,
     ));
+    this.items.set('shield', this.createItemRuntime(
+      'shield', 'Escudo da fundação', interactables.shield, interactables.shieldMaterial, SHIELD_HOME, 0.46, INVENTORY_PREVIEW_SCALE.shield,
+    ));
     this.door = interactables.door;
     this.lockSocket = interactables.lockSocket;
     this.hazardMaterial = interactables.hazardMaterial;
@@ -351,6 +378,8 @@ export class OpenDungeonEngine {
     this.targetCore = interactables.targetCore;
     this.trainingDummy = interactables.trainingDummy;
     this.dummyMaterial = interactables.dummyMaterial;
+    this.trainingBolt = interactables.trainingBolt;
+    this.trainingBoltMaterial = interactables.trainingBoltMaterial;
     this.bagMenuMaterial = this.basicMaterial({
       color: 0x102b28,
       transparent: true,
@@ -774,6 +803,34 @@ export class OpenDungeonEngine {
     sword.rotation.set(0.08, -0.42, 0.12);
     this.scene.add(sword);
 
+    const shieldRack = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.9, 0.72, 0.42)), stone);
+    shieldRack.position.set(SHIELD_HOME.x, 0.36, SHIELD_HOME.z);
+    this.scene.add(shieldRack);
+    const shieldMaterial = this.material({
+      color: 0x436e68,
+      emissive: 0x123f39,
+      emissiveIntensity: 0.9,
+      roughness: 0.42,
+      metalness: 0.62,
+    });
+    const shield = new THREE.Group();
+    shield.name = 'foundation-shield';
+    const shieldBody = new THREE.Mesh(this.geometry(new THREE.CylinderGeometry(0.46, 0.46, 0.075, 32)), shieldMaterial);
+    shieldBody.rotation.x = Math.PI / 2;
+    const shieldRim = new THREE.Mesh(this.geometry(new THREE.TorusGeometry(0.43, 0.045, 10, 36)), bronze);
+    shieldRim.position.z = 0.045;
+    const shieldBoss = new THREE.Mesh(this.geometry(new THREE.SphereGeometry(0.13, 18, 12, 0, Math.PI * 2, 0, Math.PI / 2)), bronze);
+    shieldBoss.rotation.x = Math.PI / 2;
+    shieldBoss.position.z = 0.048;
+    const shieldRune = new THREE.Mesh(this.geometry(new THREE.RingGeometry(0.2, 0.235, 28)), rune);
+    shieldRune.position.z = 0.086;
+    const shieldHandle = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.2, 0.055, 0.055)), swordGripMaterial);
+    shieldHandle.position.z = -0.085;
+    shield.add(shieldBody, shieldRim, shieldBoss, shieldRune, shieldHandle);
+    shield.position.copy(SHIELD_HOME);
+    shield.rotation.set(0.08, 0.42, -0.08);
+    this.scene.add(shield);
+
     const dummyMaterial = this.material({
       color: 0x8a6244,
       emissive: 0x1a0c06,
@@ -794,6 +851,20 @@ export class OpenDungeonEngine {
     dummyBase.position.y = -1.05;
     trainingDummy.add(dummyPost, dummyTorso, dummyHead, dummyBase);
     this.scene.add(trainingDummy);
+
+    const trainingBoltMaterial = this.material({
+      color: 0xffb35c,
+      emissive: 0xe34a24,
+      emissiveIntensity: 3.6,
+      roughness: 0.2,
+      metalness: 0.28,
+      transparent: true,
+      opacity: 0.94,
+    });
+    const trainingBolt = new THREE.Mesh(this.geometry(new THREE.IcosahedronGeometry(0.1, 1)), trainingBoltMaterial);
+    trainingBolt.name = 'shield-training-bolt';
+    trainingBolt.visible = false;
+    this.scene.add(trainingBolt);
 
     const hazardMaterial = this.material({
       color: 0xd14b55,
@@ -866,6 +937,10 @@ export class OpenDungeonEngine {
       potionMaterial,
       sword,
       swordMaterial,
+      shield,
+      shieldMaterial,
+      trainingBolt,
+      trainingBoltMaterial,
       hazardMaterial,
       door,
       lockSocket,
@@ -1257,7 +1332,9 @@ export class OpenDungeonEngine {
     this.updateSecondaryItem(this.items.get('key')!, delta, nowSeconds);
     this.updateSecondaryItem(this.items.get('potion')!, delta, nowSeconds);
     this.updateSecondaryItem(this.items.get('sword')!, delta, nowSeconds);
+    this.updateSecondaryItem(this.items.get('shield')!, delta, nowSeconds);
     this.updateTrainingCombat(delta);
+    this.updateShieldTraining(delta);
     if (this.objectState.storedSlot !== null) {
       const slot = this.bagSlots[this.objectState.storedSlot];
       if (slot) {
@@ -1517,6 +1594,99 @@ export class OpenDungeonEngine {
       if (sword?.secondaryHolder) this.pulseController(sword.secondaryHolder, 0.24, 48);
     }
     this.emitInteraction(`Golpe válido ${this.dummyHits} · o boneco de treino é imortal.`);
+  }
+
+  private beginShieldAttack() {
+    this.camera.getWorldPosition(this.shieldAttackTarget);
+    this.camera.getWorldQuaternion(this.worldQuaternion);
+    const forward = this.slotPosition.set(0, 0, -1).applyQuaternion(this.worldQuaternion).normalize();
+    this.shieldAttackTarget.y -= 0.28;
+    this.shieldAttackOrigin.copy(this.shieldAttackTarget).addScaledVector(forward, 3.1);
+    this.trainingBolt.position.copy(this.shieldAttackOrigin);
+    this.previousTrainingBoltPosition.copy(this.shieldAttackOrigin);
+    this.trainingBolt.visible = true;
+    this.trainingBoltMaterial.emissive.setHex(0xe34a24);
+    this.shieldAttackPhase = 'telegraph';
+    this.shieldAttackTimer = 1.05;
+    this.playTone(190, 0.18, 0.035);
+    this.emitInteraction('Ataque anunciado · erga e oriente a face do escudo para o projétil.');
+  }
+
+  private finishShieldAttack(blocked: boolean, holder: Holder) {
+    this.trainingBolt.visible = false;
+    this.shieldAttackPhase = 'cooldown';
+    this.shieldAttackTimer = blocked ? 0.9 : 1.25;
+    if (blocked) {
+      this.blockedAttacks += 1;
+      this.trainingBoltMaterial.emissive.setHex(0x35d9ae);
+      this.playTone(240, 0.06, 0.07);
+      this.playTone(760, 0.13, 0.06, 0.035);
+      this.pulseController(holder, 0.72, 115);
+      this.emitInteraction(`Bloqueio direcional ${this.blockedAttacks} · face e área do escudo válidas.`);
+      return;
+    }
+    this.receivedAttacks += 1;
+    this.health = applyNonLethalHazard(this.health);
+    this.trainingBoltMaterial.emissive.setHex(0xe34a24);
+    this.playTone(120, 0.18, 0.08);
+    this.pulseControllers(0.5, 95);
+    this.emitInteraction(`Golpe não bloqueado · vida ${this.health}/${MAX_HEALTH}. Vire a face do escudo para o ataque.`);
+  }
+
+  private updateShieldTraining(delta: number) {
+    const shield = this.items.get('shield')!;
+    const holder = shield.state.holder;
+    if (!holder) {
+      this.trainingBolt.visible = false;
+      this.shieldAttackPhase = 'waiting';
+      this.shieldAttackTimer = 0;
+      return;
+    }
+
+    if (this.shieldAttackPhase === 'waiting') {
+      this.beginShieldAttack();
+      return;
+    }
+
+    this.shieldAttackTimer = Math.max(0, this.shieldAttackTimer - delta);
+    if (this.shieldAttackPhase === 'telegraph') {
+      const pulse = 0.82 + Math.sin(this.animationSeconds * 18) * 0.18;
+      this.trainingBolt.scale.setScalar(pulse);
+      this.trainingBoltMaterial.emissiveIntensity = 3.6 + pulse * 2.2;
+      if (this.shieldAttackTimer <= 0) {
+        this.shieldAttackPhase = 'flight';
+        this.shieldAttackTimer = 0.82;
+        this.trainingBolt.scale.setScalar(1);
+      }
+      return;
+    }
+
+    if (this.shieldAttackPhase === 'cooldown') {
+      if (this.shieldAttackTimer <= 0) this.beginShieldAttack();
+      return;
+    }
+
+    this.previousTrainingBoltPosition.copy(this.trainingBolt.position);
+    const progress = 1 - this.shieldAttackTimer / 0.82;
+    this.trainingBolt.position.lerpVectors(this.shieldAttackOrigin, this.shieldAttackTarget, THREE.MathUtils.clamp(progress, 0, 1));
+    this.trainingBolt.rotation.x += delta * 11;
+    this.trainingBolt.rotation.y += delta * 8;
+
+    shield.object.updateMatrixWorld(true);
+    shield.object.getWorldPosition(this.worldPosition);
+    shield.object.getWorldQuaternion(this.worldQuaternion);
+    const normal = this.handPosition.set(0, 0, 1).applyQuaternion(this.worldQuaternion).normalize();
+    if (directionalShieldBlock({
+      attackPrevious: this.previousTrainingBoltPosition,
+      attackCurrent: this.trainingBolt.position,
+      shieldCenter: this.worldPosition,
+      shieldNormal: normal,
+      shieldRadius: 0.46,
+    })) {
+      this.finishShieldAttack(true, holder);
+      return;
+    }
+    if (this.shieldAttackTimer <= 0) this.finishShieldAttack(false, holder);
   }
 
   private desktopSwordStrike() {
@@ -2255,6 +2425,7 @@ export class OpenDungeonEngine {
     const key = this.items.get('key')!;
     const potion = this.items.get('potion')!;
     const sword = this.items.get('sword')!;
+    const shield = this.items.get('shield')!;
     key.state = { ...INITIAL_OBJECT_STATE };
     this.targetHits = 0;
     this.targetPulseSeconds = 0;
@@ -2268,6 +2439,7 @@ export class OpenDungeonEngine {
     this.resetItem(key);
     this.resetItem(potion);
     this.resetItem(sword);
+    this.resetItem(shield);
     this.keyInserted = false;
     this.potionConsumed = false;
     this.drinkProgress = 0;
@@ -2277,6 +2449,14 @@ export class OpenDungeonEngine {
     this.dummyHitPulse = 0;
     this.trainingDummy.rotation.set(0, 0, 0);
     this.swordTipReady = false;
+    this.blockedAttacks = 0;
+    this.receivedAttacks = 0;
+    this.shieldAttackPhase = 'waiting';
+    this.shieldAttackTimer = 0;
+    this.trainingBolt.visible = false;
+    this.trainingBolt.scale.setScalar(1);
+    this.trainingBoltMaterial.emissive.setHex(0xe34a24);
+    this.trainingBoltMaterial.emissiveIntensity = 3.6;
     this.hazardOccupied = false;
     this.hazardPulseSeconds = 0;
     this.doorOpenAmount = 0;
@@ -2347,6 +2527,8 @@ export class OpenDungeonEngine {
       maximumHealth: MAX_HEALTH,
       potionConsumed: this.potionConsumed,
       dummyHits: this.dummyHits,
+      blockedAttacks: this.blockedAttacks,
+      receivedAttacks: this.receivedAttacks,
       status,
     };
     const signature = JSON.stringify(snapshot);
@@ -2356,6 +2538,9 @@ export class OpenDungeonEngine {
   }
 
   private contextualStatus(fallback: string) {
+    const shield = this.items.get('shield');
+    if (shield?.state.holder) return `Escudo em mãos · ${this.blockedAttacks} bloqueio${this.blockedAttacks === 1 ? '' : 's'} válido${this.blockedAttacks === 1 ? '' : 's'}. Oriente a face para o ataque.`;
+    if (shield && shield.state.storedSlot !== null) return `Escudo guardado no slot ${shield.state.storedSlot + 1} · retire-o para treinar bloqueios.`;
     const sword = this.items.get('sword');
     if (sword?.state.holder) return `Espada em mãos · ${this.dummyHits} golpe${this.dummyHits === 1 ? '' : 's'} válido${this.dummyHits === 1 ? '' : 's'} no boneco imortal.`;
     if (sword && sword.state.storedSlot !== null) return `Espada guardada no slot ${sword.state.storedSlot + 1} · retire-a para iniciar o treino.`;

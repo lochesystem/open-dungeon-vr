@@ -213,6 +213,17 @@ O jogador abre a bolsa, guarda uma poção, uma chave e o cubo rúnico, fecha, c
 - [x] Puxão distante e retirada da bolsa usam o cabo como ponto seguro inicial.
 - [ ] Homologar liberdade, estabilidade e conforto de pegadas incomuns no Meta Quest.
 
+### D3.3 — Escudo e bloqueio direcional
+
+- [x] Escudo procedural pode ser puxado, segurado, solto, guardado e recuperado.
+- [x] Ataque mecânico anuncia origem e instante antes de viajar até o jogador.
+- [x] Bloqueio usa trajetória varrida para não perder contato entre frames.
+- [x] Somente a face frontal bloqueia, dentro de um cone angular válido.
+- [x] O ponto de contato precisa estar dentro do raio físico do escudo.
+- [x] Erro causa dano não letal; acerto responde com áudio, haptics e contagem.
+- [x] Ciclo reinicia automaticamente enquanto o escudo está equipado.
+- [ ] Homologar tamanho, ritmo e cone de bloqueio no Meta Quest.
+
 ### Experiência
 
 O jogador retira espada e escudo, ataca um boneco, bloqueia um golpe mecânico, executa um parry e quebra o alvo. Um painel mostra somente feedback útil e oferece repetição.
@@ -396,7 +407,7 @@ O slice não começa do zero: ele amplia uma cadeia já jogável e homologada.
 
 ## 13. Ordem imediata
 
-A etapa ativa é **D2 — Bolsa da aventura**. A D2.1 estabelece a ergonomia e a autoridade de um único item; a próxima fatia adiciona categorias reais com poção, chave e moeda sem alterar a regra central já validada.
+A etapa ativa é **D3 — Laboratório de combate estático**. A D3.3 fecha o primeiro bloqueio direcional funcional; a próxima fatia adiciona uma janela temporal de parry sem transformar contato permanente em defesa perfeita.
 
 ## 14. Registro de andamento
 
@@ -404,8 +415,8 @@ A etapa ativa é **D2 — Bolsa da aventura**. A D2.1 estabelece a ergonomia e a
 | --- | --- | --- |
 | D0 — Fundação | Concluída | `game/`; testes, lint, build e HTTP 200 em 24/08/2026 |
 | D1 — Mãos e objeto | Concluída | Grab, handoff, arremesso, alvo, recuperação e homologação inicial no Quest |
-| D2 — Bolsa e itens | Em andamento | D2.3: poção consumível, dano não letal e vida no pulso |
-| D3 — Combate estático | Não iniciada | — |
+| D2 — Bolsa e itens | Concluída | Bolsa 3×2, categorias, poção consumível, chave, recuperação e vida no pulso |
+| D3 — Combate estático | Em andamento | D3.3: espada livre, boneco imortal, escudo e bloqueio direcional |
 | D4 — Primeiro inimigo | Não iniciada | — |
 | D5 — Sala completa | Não iniciada | — |
 | D6 — Micro-expedição | Não iniciada | — |

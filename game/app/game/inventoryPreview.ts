@@ -3,6 +3,7 @@ export const INVENTORY_PREVIEW_SCALE = {
   key: 0.2,
   potion: 0.24,
   sword: 0.12,
+  shield: 0.12,
 } as const;
 
 export const INVENTORY_SLOT_CENTER_SPACING = 0.15;

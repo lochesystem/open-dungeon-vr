@@ -17,6 +17,22 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D3 — Laboratório de combate estático.
 
+## [0.10.0] — 2026-08-24
+
+### Adicionado
+
+- Escudo procedural com corpo metálico, aro, boss, runa frontal, alça traseira e suporte próprio.
+- Projétil de treino com anúncio visual e sonoro, trajetória reproduzível e ciclos sucessivos enquanto o escudo está equipado.
+- Bloqueio espacial que valida simultaneamente a face frontal, o ângulo de chegada e o ponto de contato dentro do raio físico do escudo.
+- Contadores separados para bloqueios válidos e ataques recebidos, com áudio, haptics e dano não letal.
+- Escudo integrado ao puxão distante, física, recuperação e bolsa de seis slots.
+
+### Validado
+
+- Testes cobrem frente, verso, limite circular e rejeição de golpes rasantes.
+- Revisão visual em navegador confirmou escala discreta, leitura do suporte e ausência de erros no console.
+- Suíte ampliada para 52 testes.
+
 ## [0.9.0] — 2026-08-24
 
 ### Alterado
