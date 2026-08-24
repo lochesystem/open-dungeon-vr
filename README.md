@@ -12,7 +12,7 @@ Documentos do projeto:
 ## Estado
 
 - D0 e D1 concluídas; D2.1 com primeira bolsa da aventura executável
-- Portal discreto na cintura e menu transparente com seis slots, mantendo armazenamento autoritativo no desktop/WebXR
+- Portal discreto na cintura: solte o item sobre o anel para guardá-lo automaticamente; `X` na mão esquerda abre o menu transparente com seis slots
 - Nome de trabalho: **Open Dungeon VR**
 - Produção: **FULL IA**, com aprovação visual e de produto pelo usuário
 - Estratégia: entregas pequenas, executáveis e verticalmente completas
@@ -34,6 +34,8 @@ npm run check
 ```
 
 Na versão desktop, use `E` para pegar ou soltar o cubo, `F` para arremessar, `B` para guardar ou retirar da bolsa, `R` para recuperá-lo e `H` para visualizar as hitboxes.
+
+No Meta Quest, solte o gatilho com o item sobre o anel da cintura para guardá-lo no primeiro slot livre. O botão `X` do controle esquerdo abre ou fecha o inventário.
 
 ## Meta Quest pelo GitHub Pages
 

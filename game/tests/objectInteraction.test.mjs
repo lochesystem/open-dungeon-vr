@@ -4,6 +4,7 @@ import {
   INITIAL_OBJECT_STATE,
   claimObject,
   computeThrowVelocity,
+  firstAvailableSlot,
   registerTargetHit,
   releaseObject,
   retrieveObject,
@@ -38,6 +39,13 @@ test('bag rejects invalid slots and retrieval from the wrong socket', () => {
   assert.equal(storeObject(held, 'desktop', 3, 3), held);
   const stored = storeObject(held, 'desktop', 0, 3);
   assert.equal(retrieveObject(stored, 'right', 2), stored);
+});
+
+test('waist portal chooses the first available inventory slot', () => {
+  assert.equal(firstAvailableSlot([], 6), 0);
+  assert.equal(firstAvailableSlot([0, 2, 3], 6), 1);
+  assert.equal(firstAvailableSlot([0, 1], 2), null);
+  assert.equal(firstAvailableSlot([], 0), null);
 });
 
 test('throw velocity uses pose history and caps impossible spikes', () => {

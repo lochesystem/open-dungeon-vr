@@ -117,6 +117,8 @@ O jogador pega um cubo rúnico, troca de mão, solta, arremessa em um alvo e rec
 - [x] Seis sockets em matriz 3×2 oferecem snap assistido e feedback visual.
 - [x] Cubo entra e sai da bolsa sem duplicar autoridade entre mundo, slot e mão.
 - [x] Guardar e retirar possuem áudio, haptics e equivalência desktop pela tecla `B`.
+- [x] Soltar um item sobre o anel da cintura o envia ao primeiro slot livre sem abrir o menu.
+- [x] Botão `X` da mão esquerda abre ou fecha o inventário no Meta Quest.
 - [x] Regras de armazenamento, slot inválido e retirada incorreta possuem testes headless.
 - [ ] Validar repetição prolongada, alcance sentado e ergonomia no Quest.
 

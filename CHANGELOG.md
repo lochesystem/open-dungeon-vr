@@ -17,6 +17,17 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D2 — Bolsa da aventura.
 
+## [0.3.2] — 2026-08-24
+
+### Adicionado
+
+- Soltar um item sobre o anel da cintura agora o guarda automaticamente no primeiro slot livre.
+- Botão `X` do controle esquerdo do Meta Quest abre ou fecha o inventário, com detecção por borda para não repetir enquanto estiver pressionado.
+
+### Alterado
+
+- Painel do inventário foi aproximado de 82 cm para 62 cm da cabeça, com escala compensada para continuar discreto e reduzir a extensão necessária do braço.
+
 ## [0.3.1] — 2026-08-24
 
 ### Alterado

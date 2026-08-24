@@ -15,6 +15,7 @@ import {
   type PoseSample,
   claimObject,
   computeThrowVelocity,
+  firstAvailableSlot,
   registerTargetHit,
   releaseObject,
   retrieveObject,
@@ -22,6 +23,7 @@ import {
   storeObject,
   sweptTargetHit,
 } from './objectInteraction';
+import { META_QUEST_PRIMARY_FACE_BUTTON, buttonPressedOnRisingEdge } from './vrInput';
 import { createVrSessionInit } from './xrSession';
 
 export type InteractionSnapshot = {
@@ -148,6 +150,7 @@ export class OpenDungeonEngine {
   private bagOpenAmount = 0;
   private bagMenuOpen = false;
   private desktopBagOpenSeconds = 0;
+  private leftXWasPressed = false;
 
   constructor(container: HTMLElement, options: EngineOptions = {}) {
     this.options = options;
@@ -264,6 +267,7 @@ export class OpenDungeonEngine {
 
   private readonly onXrSessionEnd = () => {
     this.xrOriginPending = false;
+    this.leftXWasPressed = false;
     this.resetPlayerTransform();
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.quest ? 1 : 1.5));
     this.resize();
@@ -483,11 +487,11 @@ export class OpenDungeonEngine {
     this.playerRig.add(this.adventureBag);
 
     this.bagMenu.name = 'adventure-bag-menu';
-    const panel = new THREE.Mesh(this.geometry(new THREE.PlaneGeometry(0.64, 0.42)), this.bagMenuMaterial);
+    const panel = new THREE.Mesh(this.geometry(new THREE.PlaneGeometry(0.5, 0.34)), this.bagMenuMaterial);
     panel.position.z = 0.025;
     this.bagMenu.add(panel);
 
-    const slotGeometry = this.geometry(new THREE.RingGeometry(0.055, 0.07, 28));
+    const slotGeometry = this.geometry(new THREE.RingGeometry(0.05, 0.063, 28));
     for (let index = 0; index < BAG_SLOT_COUNT; index += 1) {
       const material = this.material({
         color: 0x51e6b8,
@@ -500,7 +504,7 @@ export class OpenDungeonEngine {
       slot.name = `bag-slot-${index + 1}`;
       const column = index % 3;
       const row = Math.floor(index / 3);
-      slot.position.set((column - 1) * 0.19, row === 0 ? 0.105 : -0.105, 0);
+      slot.position.set((column - 1) * 0.15, row === 0 ? 0.085 : -0.085, 0);
       slot.visible = false;
       this.bagSlots.push(slot);
       this.bagSlotMaterials.push(material);
@@ -630,18 +634,29 @@ export class OpenDungeonEngine {
 
     if (this.renderer.xr.isPresenting) {
       const session = this.renderer.xr.getSession();
+      let leftXPressed = false;
       for (const source of session?.inputSources ?? []) {
         if (!source.gamepad) continue;
         const [axisX, axisY] = this.readStick(source.gamepad.axes);
         if (source.handedness === 'left') {
           right += axisX;
           forward -= axisY;
+          leftXPressed = Boolean(source.gamepad.buttons[META_QUEST_PRIMARY_FACE_BUTTON]?.pressed);
+          if (buttonPressedOnRisingEdge(
+            source.gamepad.buttons,
+            META_QUEST_PRIMARY_FACE_BUTTON,
+            this.leftXWasPressed,
+          )) {
+            this.toggleBagMenu('left');
+          }
         } else if (source.handedness === 'right') {
           turn += axisX;
         }
       }
+      this.leftXWasPressed = leftXPressed;
 
     } else {
+      this.leftXWasPressed = false;
       const gamepad = Array.from(navigator.getGamepads?.() ?? []).find((candidate) => candidate?.connected);
       if (gamepad) {
         right += applyDeadzone(gamepad.axes[0] ?? 0);
@@ -830,9 +845,9 @@ export class OpenDungeonEngine {
     if (forward.lengthSq() < 0.001) forward.set(0, 0, -1);
     forward.normalize();
     this.bagMenu.position.set(
-      this.camera.position.x + forward.x * 0.82,
+      this.camera.position.x + forward.x * 0.62,
       THREE.MathUtils.clamp(this.camera.position.y - 0.12, 1.02, 1.6),
-      this.camera.position.z + forward.z * 0.82,
+      this.camera.position.z + forward.z * 0.62,
     );
     this.bagMenu.rotation.set(0, Math.atan2(-forward.x, -forward.z), 0);
   }
@@ -864,6 +879,14 @@ export class OpenDungeonEngine {
 
   private finishControllerGrab(holder: 'left' | 'right') {
     if (this.objectState.holder !== holder) return;
+    if (this.isControllerNearWaist(holder)) {
+      const slot = firstAvailableSlot([], BAG_SLOT_COUNT);
+      if (slot !== null) {
+        this.storeHeldObject(holder, slot);
+        this.emitInteraction(`Cubo guardado automaticamente no slot ${slot + 1}.`);
+        return;
+      }
+    }
     const slot = this.nearestBagSlot(holder);
     if (slot !== null) {
       this.storeHeldObject(holder, slot);

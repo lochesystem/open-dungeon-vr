@@ -35,6 +35,18 @@ export function storeObject(
   return { ...state, holder: null, storedSlot: slot };
 }
 
+export function firstAvailableSlot(
+  occupiedSlots: readonly number[],
+  slotCount: number,
+): number | null {
+  if (!Number.isInteger(slotCount) || slotCount <= 0) return null;
+  const occupied = new Set(occupiedSlots);
+  for (let slot = 0; slot < slotCount; slot += 1) {
+    if (!occupied.has(slot)) return slot;
+  }
+  return null;
+}
+
 export function retrieveObject(
   state: AdventureObjectState,
   holder: Holder,
