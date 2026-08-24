@@ -9,10 +9,12 @@ import {
 test('cube and key previews fit inside their slot without touching neighbours', () => {
   const cubeWidth = 0.4 * INVENTORY_PREVIEW_SCALE.cube;
   const keyWidth = 0.55 * INVENTORY_PREVIEW_SCALE.key;
+  const potionWidth = 0.26 * INVENTORY_PREVIEW_SCALE.potion;
   const safeWidth = INVENTORY_SLOT_CENTER_SPACING * 0.82;
 
   assert.ok(cubeWidth < safeWidth);
   assert.ok(keyWidth < safeWidth);
+  assert.ok(potionWidth < safeWidth);
 });
 
 test('inventory preview only rocks subtly instead of completing full rotations', () => {

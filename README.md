@@ -11,7 +11,7 @@ Documentos do projeto:
 
 ## Estado
 
-- D0 e D1 concluídas; D2.2 com bolsa multi-item, chave de missão e porta física executáveis
+- D0 e D1 concluídas; D2.3 com bolsa multi-item, chave, porta, poção consumível e vida no pulso
 - Portal discreto na cintura: solte cubo ou chave sobre o anel para guardar automaticamente; `X` na mão esquerda abre o menu transparente com seis slots
 - Nome de trabalho: **Open Dungeon VR**
 - Produção: **FULL IA**, com aprovação visual e de produto pelo usuário
@@ -38,6 +38,7 @@ Na versão desktop, use `E` para pegar ou soltar o cubo, `F` para arremessar, `B
 No Meta Quest, solte o gatilho com o item sobre o anel da cintura para guardá-lo no primeiro slot livre. O botão `X` do controle esquerdo abre ou fecha o inventário.
 Para pegar sem se agachar, aponte a mão para o item a até 3,5 m e pressione o gatilho; ele será atraído suavemente até a pegada.
 Retire a chave do inventário e solte-a junto à fechadura do portal para abrir fisicamente a passagem.
+Após sofrer dano na runa, leve a poção à boca, incline o frasco e mantenha a pose brevemente para recuperar vida e liberar o slot.
 
 ## Meta Quest pelo GitHub Pages
 

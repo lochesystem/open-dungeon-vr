@@ -21,6 +21,9 @@ export function GameShell() {
     storedItemCount: 0,
     keyInserted: false,
     doorOpen: false,
+    health: 3,
+    maximumHealth: 3,
+    potionConsumed: false,
     status: 'Encontre o cubo rúnico sobre o pedestal.',
   });
 
@@ -55,7 +58,7 @@ export function GameShell() {
 
   const playDesktop = useCallback(() => {
     engineRef.current?.reset();
-    setNotice('Encontre a chave, use a bolsa e abra a passagem no portal.');
+    setNotice('Atravesse a armadilha, encontre a poção e restaure sua vida.');
     setScreen('playing');
   }, []);
 
@@ -115,6 +118,7 @@ export function GameShell() {
             <span>02 · Cubo físico</span>
             <span>03 · Bolsa de cintura</span>
             <span>04 · Chave e passagem</span>
+            <span>05 · Poção e vida</span>
           </div>
           <p className="notice" role="status">{notice}</p>
         </section>
@@ -130,15 +134,16 @@ export function GameShell() {
             <span><kbd>←</kbd><kbd>→</kbd> olhar</span>
             <span><kbd>E</kbd> pegar / soltar</span>
             <span><kbd>F</kbd> arremessar</span>
+            <span><kbd>G</kbd> beber poção</span>
             <span><kbd>B</kbd> guardar / retirar</span>
             <span><kbd>R</kbd> reiniciar itens</span>
             <span><kbd>H</kbd> hitboxes</span>
             <span><kbd>ESC</kbd> pausar</span>
           </aside>
           <aside className="objective-card" aria-label="Objetivo da sala">
-            <span>OBJETIVO D2.2</span>
-            <strong>{interaction.keyInserted ? 'PASSAGEM ABERTA' : interaction.storedItemCount > 0 ? 'ITENS GUARDADOS' : 'ENCONTRE A CHAVE'}</strong>
-            <small>{interaction.keyInserted ? 'Atravesse o portal' : interaction.storedItemCount > 0 ? `${interaction.storedItemCount} de 6 slots ocupados` : interaction.heldBy ? 'Guarde ou use o item' : interaction.canGrab ? 'Item sob a mira' : 'Procure os pedestais'}</small>
+            <span>OBJETIVO D2.3 · VIDA {interaction.health}/{interaction.maximumHealth}</span>
+            <strong>{interaction.potionConsumed ? 'VIDA RESTAURADA' : interaction.health < interaction.maximumHealth ? 'BEBA A POÇÃO' : 'ATRAVESSE A RUNA'}</strong>
+            <small>{interaction.potionConsumed ? 'Frasco consumido e slot liberado' : interaction.health < interaction.maximumHealth ? 'Leve à boca e incline' : interaction.storedItemCount > 0 ? `${interaction.storedItemCount} de 6 slots ocupados` : 'A armadilha é não letal'}</small>
           </aside>
           <p className="play-notice" role="status">{interaction.status || notice}</p>
         </>
@@ -157,7 +162,7 @@ export function GameShell() {
         </section>
       )}
 
-      <footer className="build-label">BUILD D2.2 · LOCAL · {xrActive ? 'XR ATIVO' : 'DESKTOP'}</footer>
+      <footer className="build-label">BUILD D2.3 · LOCAL · {xrActive ? 'XR ATIVO' : 'DESKTOP'}</footer>
     </main>
   );
 }

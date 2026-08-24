@@ -132,6 +132,16 @@ O jogador pega um cubo rúnico, troca de mão, solta, arremessa em um alvo e rec
 - [x] Feedback visual, sonoro e háptico informa armazenamento, retirada e desbloqueio.
 - [ ] Homologar o ciclo completo no Meta Quest.
 
+### D2.3 — Poção e vida
+
+- [x] Poção procedural participa do puxão assistido e do inventário multi-item.
+- [x] Armadilha rúnica aplica dano não letal uma vez por entrada.
+- [x] Vida é apresentada discretamente no pulso esquerdo.
+- [x] Consumo exige proximidade, inclinação e tempo deliberado.
+- [x] Beber cura exatamente uma unidade, remove um frasco e libera o slot.
+- [x] Regras de dano, cura, gesto e consumo possuem testes headless.
+- [ ] Homologar gesto de beber, legibilidade do pulso e conforto no Meta Quest.
+
 ### Experiência
 
 O jogador abre a bolsa, guarda uma poção, uma chave e o cubo rúnico, fecha, caminha, reabre e recupera cada item. Usa a poção, abre uma fechadura com a chave e termina o pequeno desafio.
@@ -350,7 +360,7 @@ A etapa ativa é **D2 — Bolsa da aventura**. A D2.1 estabelece a ergonomia e a
 | --- | --- | --- |
 | D0 — Fundação | Concluída | `game/`; testes, lint, build e HTTP 200 em 24/08/2026 |
 | D1 — Mãos e objeto | Concluída | Grab, handoff, arremesso, alvo, recuperação e homologação inicial no Quest |
-| D2 — Bolsa e itens | Em andamento | D2.2: inventário multi-item, chave de missão e porta física |
+| D2 — Bolsa e itens | Em andamento | D2.3: poção consumível, dano não letal e vida no pulso |
 | D3 — Combate estático | Não iniciada | — |
 | D4 — Primeiro inimigo | Não iniciada | — |
 | D5 — Sala completa | Não iniciada | — |

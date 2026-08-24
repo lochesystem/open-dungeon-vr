@@ -17,6 +17,21 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D2 — Bolsa da aventura.
 
+## [0.5.0] — 2026-08-24
+
+### Adicionado
+
+- Poção restauradora procedural com vidro translúcido, líquido emissivo e rolha.
+- Armadilha rúnica não letal reduz uma unidade de vida ao ser atravessada.
+- Indicador de três pontos de vida preso ao pulso esquerdo no modo VR.
+- Gesto de beber exige proximidade da boca, inclinação do frasco e pose mantida por 0,32 s.
+- Consumo cura exatamente uma unidade, remove a poção do mundo e libera seu slot.
+- Tecla `G` oferece equivalência do consumo no modo desktop.
+
+### Validado
+
+- Testes cobrem gesto incompleto, distância, inclinação, tempo mínimo, cura máxima, dano não letal e escala da prévia no inventário.
+
 ## [0.4.1] — 2026-08-24
 
 ### Corrigido

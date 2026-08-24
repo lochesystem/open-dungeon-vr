@@ -11,6 +11,7 @@ import { applyDeadzone, clampFrameDelta, movementVelocity, rigPositionForTracked
 import { captureGripRotationOffset, heldObjectRotation } from './grip';
 import { INVENTORY_PREVIEW_SCALE, inventoryPreviewYaw } from './inventoryPreview';
 import { canInsertMissionKey, doorBlocksPassage } from './missionDoor';
+import { applyNonLethalHazard, healPlayer, shouldDrinkPotion } from './potion';
 import { remoteGrabDistance, remotePullDuration, remotePullProgress } from './remoteGrab';
 import {
   INITIAL_OBJECT_STATE,
@@ -38,6 +39,9 @@ export type InteractionSnapshot = {
   storedItemCount: number;
   keyInserted: boolean;
   doorOpen: boolean;
+  health: number;
+  maximumHealth: number;
+  potionConsumed: boolean;
   status: string;
 };
 
@@ -61,6 +65,10 @@ const DESKTOP_REACH = 3.2;
 const ROOM_BOUNDS: CollisionBounds = { minX: -11.7, maxX: 11.7, minZ: -11.7, maxZ: 11.7 };
 const CUBE_HOME = new THREE.Vector3(3, 1.27, 4.2);
 const KEY_HOME = new THREE.Vector3(-3, 1.2, 4.2);
+const POTION_HOME = new THREE.Vector3(0, 1.22, 4.15);
+const HAZARD_POSITION = new THREE.Vector3(0, 0, 5.45);
+const HAZARD_RADIUS = 0.72;
+const MAX_HEALTH = 3;
 const LOCK_POSITION = new THREE.Vector3(1.45, 1.18, -7.05);
 const TARGET_POSITION = new THREE.Vector3(3, 2, -4.8);
 const TARGET_RADIUS = 0.72;
@@ -115,6 +123,16 @@ const KEY_PEDESTAL_COLLIDER: BoxCollider = {
   rotation: 0,
 };
 
+const POTION_PEDESTAL_COLLIDER: BoxCollider = {
+  kind: 'box',
+  id: 'healing-potion-pedestal',
+  x: POTION_HOME.x,
+  z: POTION_HOME.z,
+  halfX: 0.46,
+  halfZ: 0.46,
+  rotation: 0,
+};
+
 const LOCKED_DOOR_COLLIDER: BoxCollider = {
   kind: 'box',
   id: 'locked-portal-door',
@@ -131,9 +149,10 @@ const ROOM_COLLIDERS: StaticCollider[] = [
   ALTAR_COLLIDER,
   PEDESTAL_COLLIDER,
   KEY_PEDESTAL_COLLIDER,
+  POTION_PEDESTAL_COLLIDER,
 ];
 
-type ItemId = 'cube' | 'key';
+type ItemId = 'cube' | 'key' | 'potion';
 
 type ItemRuntime = {
   id: ItemId;
@@ -177,6 +196,9 @@ export class OpenDungeonEngine {
   private readonly items = new Map<ItemId, ItemRuntime>();
   private readonly door: THREE.Mesh;
   private readonly lockSocket: THREE.Group;
+  private readonly hazardMaterial: THREE.MeshStandardMaterial;
+  private readonly wristHealth = new THREE.Group();
+  private readonly healthPips: THREE.Mesh[] = [];
   private doorColliderDebug: THREE.Object3D | null = null;
   private readonly targetMaterial: THREE.MeshStandardMaterial;
   private readonly targetCore: THREE.Mesh;
@@ -185,6 +207,11 @@ export class OpenDungeonEngine {
   private lastInteractionSignature = '';
   private keyInserted = false;
   private doorOpenAmount = 0;
+  private health = MAX_HEALTH;
+  private potionConsumed = false;
+  private drinkProgress = 0;
+  private hazardOccupied = false;
+  private hazardPulseSeconds = 0;
   private audioContext: AudioContext | null = null;
   private animationSeconds = 0;
   private lastFrameSeconds = 0;
@@ -241,8 +268,12 @@ export class OpenDungeonEngine {
     this.items.set('key', this.createItemRuntime(
       'key', 'Chave da passagem', interactables.missionKey, interactables.keyMaterial, KEY_HOME, 0.18, INVENTORY_PREVIEW_SCALE.key,
     ));
+    this.items.set('potion', this.createItemRuntime(
+      'potion', 'Poção restauradora', interactables.potion, interactables.potionMaterial, POTION_HOME, 0.16, INVENTORY_PREVIEW_SCALE.potion,
+    ));
     this.door = interactables.door;
     this.lockSocket = interactables.lockSocket;
+    this.hazardMaterial = interactables.hazardMaterial;
     this.targetMaterial = interactables.targetMaterial;
     this.targetCore = interactables.targetCore;
     this.bagMenuMaterial = this.basicMaterial({
@@ -555,6 +586,59 @@ export class OpenDungeonEngine {
     missionKey.rotation.set(0.12, 0.3, -0.08);
     this.scene.add(missionKey);
 
+    const potionPedestal = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.92, 0.9, 0.92)), stone);
+    potionPedestal.position.set(POTION_HOME.x, 0.45, POTION_HOME.z);
+    this.scene.add(potionPedestal);
+    const potionMaterial = this.material({
+      color: 0xaaf7e4,
+      emissive: 0x146d62,
+      emissiveIntensity: 1.4,
+      roughness: 0.18,
+      metalness: 0.08,
+      transparent: true,
+      opacity: 0.42,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const potionLiquid = this.material({
+      color: 0xff5e94,
+      emissive: 0xb51454,
+      emissiveIntensity: 2.1,
+      roughness: 0.2,
+      transparent: true,
+      opacity: 0.96,
+    });
+    const corkMaterial = this.material({ color: 0x8b5b2f, roughness: 0.9, metalness: 0.02 });
+    const potion = new THREE.Group();
+    potion.name = 'healing-potion';
+    const bottle = new THREE.Mesh(this.geometry(new THREE.CylinderGeometry(0.105, 0.13, 0.3, 18)), potionMaterial);
+    bottle.position.y = -0.025;
+    const liquid = new THREE.Mesh(this.geometry(new THREE.CylinderGeometry(0.09, 0.108, 0.19, 18)), potionLiquid);
+    liquid.position.y = -0.075;
+    const neck = new THREE.Mesh(this.geometry(new THREE.CylinderGeometry(0.055, 0.07, 0.13, 14)), potionMaterial);
+    neck.position.y = 0.185;
+    const cork = new THREE.Mesh(this.geometry(new THREE.CylinderGeometry(0.052, 0.052, 0.07, 12)), corkMaterial);
+    cork.position.y = 0.285;
+    potion.add(bottle, liquid, neck, cork);
+    potion.position.copy(POTION_HOME);
+    this.scene.add(potion);
+
+    const hazardMaterial = this.material({
+      color: 0xd14b55,
+      emissive: 0x8f1027,
+      emissiveIntensity: 1.7,
+      roughness: 0.38,
+      metalness: 0.42,
+    });
+    const hazard = new THREE.Mesh(this.geometry(new THREE.RingGeometry(0.48, HAZARD_RADIUS, 36)), hazardMaterial);
+    hazard.name = 'training-hazard';
+    hazard.rotation.x = -Math.PI / 2;
+    hazard.position.copy(HAZARD_POSITION).setY(0.018);
+    this.scene.add(hazard);
+    const hazardLight = new THREE.PointLight(0xff315f, 5.5, 3.2, 2);
+    hazardLight.position.copy(HAZARD_POSITION).setY(0.16);
+    this.scene.add(hazardLight);
+
     const doorMaterial = this.material({ color: 0x342f29, roughness: 0.7, metalness: 0.34 });
     const door = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(3.42, 3.6, 0.26)), doorMaterial);
     door.name = 'locked-portal-door';
@@ -601,7 +685,19 @@ export class OpenDungeonEngine {
     portalLight.position.set(0, 2.3, -6.9);
     this.scene.add(portalLight);
 
-    return { runeCube, cubeMaterial, missionKey, keyMaterial, door, lockSocket, targetMaterial, targetCore };
+    return {
+      runeCube,
+      cubeMaterial,
+      missionKey,
+      keyMaterial,
+      potion,
+      potionMaterial,
+      hazardMaterial,
+      door,
+      lockSocket,
+      targetMaterial,
+      targetCore,
+    };
   }
 
   private buildControllers() {
@@ -618,6 +714,24 @@ export class OpenDungeonEngine {
       const palm = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.09, 0.08, 0.17)), handMaterial);
       palm.position.z = -0.06;
       controller.add(palm);
+      if (holder === 'left') {
+        this.wristHealth.name = 'wrist-health-indicator';
+        this.wristHealth.position.set(0, 0.075, -0.015);
+        for (let pipIndex = 0; pipIndex < MAX_HEALTH; pipIndex += 1) {
+          const pipMaterial = this.material({
+            color: 0xff668d,
+            emissive: 0xc51f55,
+            emissiveIntensity: 2.2,
+            roughness: 0.25,
+          });
+          const pip = new THREE.Mesh(this.geometry(new THREE.SphereGeometry(0.018, 10, 8)), pipMaterial);
+          pip.position.x = (pipIndex - 1) * 0.042;
+          this.healthPips.push(pip);
+          this.wristHealth.add(pip);
+        }
+        this.wristHealth.visible = false;
+        controller.add(this.wristHealth);
+      }
       const activeHolder = () => {
         const handedness = Array.from(this.renderer.xr.getSession()?.inputSources ?? [])[index]?.handedness;
         const resolvedHolder = handedness === 'right' ? 'right' : handedness === 'left' ? 'left' : holder;
@@ -747,6 +861,11 @@ export class OpenDungeonEngine {
       else this.tryDesktopGrab();
     }
     if (event.code === 'KeyF') this.releaseHeldObject('desktop', true);
+    if (event.code === 'KeyG') {
+      const potion = this.itemForHolder('desktop');
+      if (potion?.id === 'potion' && this.health < MAX_HEALTH) this.consumePotion(potion, 'desktop');
+      else this.emitInteraction('Segure a poção após sofrer dano para consumi-la.');
+    }
     if (event.code === 'KeyR') this.resetObject('Itens e passagem restaurados.');
     if (event.code === 'KeyB') this.toggleDesktopBag();
   };
@@ -855,9 +974,40 @@ export class OpenDungeonEngine {
     this.playerRig.rotation.y = this.yaw;
     this.playerColliderDebug.position.x = resolved.x;
     this.playerColliderDebug.position.z = resolved.z;
+    this.updateHazard(delta, resolved);
+    this.updateWristHealth();
     this.updateBagTransform(delta);
     this.updateDoor(delta);
     this.updateAdventureObject(delta, nowSeconds);
+  }
+
+  private updateHazard(delta: number, player: { x: number; z: number }) {
+    const inside = Math.hypot(player.x - HAZARD_POSITION.x, player.z - HAZARD_POSITION.z) <= HAZARD_RADIUS;
+    if (inside && !this.hazardOccupied) {
+      const nextHealth = applyNonLethalHazard(this.health);
+      if (nextHealth < this.health) {
+        this.health = nextHealth;
+        this.hazardPulseSeconds = 0.75;
+        this.playTone(135, 0.16, 0.075);
+        this.pulseControllers(0.48, 95);
+        this.emitInteraction(`Armadilha rúnica ativada · vida ${this.health}/${MAX_HEALTH}. Encontre a poção.`);
+      }
+    }
+    this.hazardOccupied = inside;
+    this.hazardPulseSeconds = Math.max(0, this.hazardPulseSeconds - delta);
+    this.hazardMaterial.emissiveIntensity = this.hazardPulseSeconds > 0 ? 4.2 : 1.7;
+  }
+
+  private updateWristHealth() {
+    this.wristHealth.visible = this.renderer.xr.isPresenting;
+    this.healthPips.forEach((pip, index) => {
+      const active = index < this.health;
+      const material = pip.material as THREE.MeshStandardMaterial;
+      material.color.setHex(active ? 0xff668d : 0x31252a);
+      material.emissive.setHex(active ? 0xc51f55 : 0x080506);
+      material.emissiveIntensity = active ? 2.2 : 0.15;
+      pip.scale.setScalar(active ? 1 : 0.72);
+    });
   }
 
   private activeColliders() {
@@ -875,7 +1025,8 @@ export class OpenDungeonEngine {
   }
 
   private updateAdventureObject(delta: number, nowSeconds: number) {
-    this.updateKeyObject(delta, nowSeconds);
+    this.updateSecondaryItem(this.items.get('key')!, delta, nowSeconds);
+    this.updateSecondaryItem(this.items.get('potion')!, delta, nowSeconds);
     if (this.objectState.storedSlot !== null) {
       const slot = this.bagSlots[this.objectState.storedSlot];
       if (slot) {
@@ -988,17 +1139,22 @@ export class OpenDungeonEngine {
     const canGrab = this.renderer.xr.isPresenting ? this.anyControllerCanGrab() : this.canDesktopGrab();
     this.cubeMaterial.emissiveIntensity = canGrab ? 3 : 1.2;
     this.emitInteraction(this.contextualStatus(
-      canGrab ? 'Item sob a mira · pressione para pegar.' : 'Encontre o cubo e a chave nos pedestais.',
+      canGrab ? 'Item sob a mira · pressione para pegar.' : 'Atravesse a runa e encontre a poção no pedestal central.',
     ));
   }
 
-  private updateKeyObject(delta: number, nowSeconds: number) {
-    const item = this.items.get('key')!;
-    if (this.keyInserted) {
+  private updateSecondaryItem(item: ItemRuntime, delta: number, nowSeconds: number) {
+    if (item.id === 'key' && this.keyInserted) {
       item.object.visible = true;
       item.object.scale.setScalar(0.72);
       item.object.position.copy(LOCK_POSITION).add(new THREE.Vector3(0, 0, 0.1));
       item.object.rotation.set(0, 0, Math.PI / 2);
+      item.velocity.set(0, 0, 0);
+      item.sleeping = true;
+      return;
+    }
+    if (item.id === 'potion' && this.potionConsumed) {
+      item.object.visible = false;
       item.velocity.set(0, 0, 0);
       item.sleeping = true;
       return;
@@ -1046,6 +1202,7 @@ export class OpenDungeonEngine {
       item.velocity.set(0, 0, 0);
       this.recordPose(holder, item.object.position, nowSeconds);
       item.material.emissiveIntensity = 2.5;
+      if (item.id === 'potion' && this.updateDrinkGesture(item, holder, delta)) return;
       return;
     }
 
@@ -1082,6 +1239,42 @@ export class OpenDungeonEngine {
     item.material.emissiveIntensity = this.itemCanBeGrabbed(item) ? 2.8 : 1.15;
   }
 
+  private updateDrinkGesture(item: ItemRuntime, holder: Holder, delta: number) {
+    if (this.health >= MAX_HEALTH) {
+      this.drinkProgress = 0;
+      return false;
+    }
+    this.camera.getWorldPosition(this.worldPosition);
+    const distanceToMouth = item.object.position.distanceTo(this.worldPosition);
+    item.object.getWorldQuaternion(this.worldQuaternion);
+    const bottleUp = this.slotPosition.set(0, 1, 0).applyQuaternion(this.worldQuaternion).normalize();
+    const uprightDot = bottleUp.y;
+    const inDrinkingPose = distanceToMouth <= 0.24 && uprightDot <= 0.38;
+    this.drinkProgress = inDrinkingPose ? this.drinkProgress + delta : 0;
+    if (!shouldDrinkPotion(distanceToMouth, uprightDot, this.drinkProgress)) return false;
+
+    this.consumePotion(item, holder);
+    return true;
+  }
+
+  private consumePotion(item: ItemRuntime, holder: Holder) {
+    if (this.potionConsumed || item.id !== 'potion') return;
+    item.state = { ...item.state, holder: null, storedSlot: null };
+    item.object.visible = false;
+    item.velocity.set(0, 0, 0);
+    item.sleeping = true;
+    this.potionConsumed = true;
+    this.health = healPlayer(this.health, MAX_HEALTH);
+    this.drinkProgress = 0;
+    this.poseHistory.set(holder, []);
+    this.gripRotationOffsets.delete(holder);
+    if (this.pullAnimation?.itemId === 'potion') this.pullAnimation = null;
+    this.playTone(540, 0.12, 0.055);
+    this.playTone(820, 0.18, 0.05, 0.1);
+    this.pulseController(holder, 0.42, 90);
+    this.emitInteraction(`Poção consumida · vida restaurada para ${this.health}/${MAX_HEALTH}.`);
+  }
+
   private updateBagTransform(delta: number) {
     const headHeight = THREE.MathUtils.clamp(this.camera.position.y, 1.15, 1.95);
     this.adventureBag.position.set(
@@ -1115,7 +1308,9 @@ export class OpenDungeonEngine {
       const material = this.bagSlotMaterials[index];
       const stored = this.itemInSlot(index);
       material.emissiveIntensity = stored ? 2.6 : 0.5;
-      material.color.setHex(stored?.id === 'key' ? 0xffbd55 : stored ? 0x73e4ca : 0x51e6b8);
+      material.color.setHex(
+        stored?.id === 'key' ? 0xffbd55 : stored?.id === 'potion' ? 0xff6f9f : stored ? 0x73e4ca : 0x51e6b8,
+      );
     }
 
     for (const holder of ['left', 'right'] as const) {
@@ -1323,10 +1518,6 @@ export class OpenDungeonEngine {
 
   private tryDesktopGrab() {
     if (this.itemForHolder('desktop')) return;
-    if (Array.from(this.items.values()).every((item) => item.state.storedSlot !== null || (item.id === 'key' && this.keyInserted))) {
-      this.emitInteraction('Abra a bolsa para retirar um item.');
-      return;
-    }
     const item = this.desktopGrabCandidate();
     if (this.renderer.xr.isPresenting || !item) {
       this.emitInteraction('Mire em um item para pegá-lo.');
@@ -1429,7 +1620,7 @@ export class OpenDungeonEngine {
     let candidate: ItemRuntime | null = null;
     let nearest = DESKTOP_REACH;
     for (const item of this.items.values()) {
-      if (item.state.holder || item.state.storedSlot !== null || (item.id === 'key' && this.keyInserted)) continue;
+      if (this.itemUnavailable(item)) continue;
       const hit = this.raycaster.intersectObject(item.object, true)[0];
       if (hit && hit.distance <= nearest) {
         candidate = item;
@@ -1451,6 +1642,7 @@ export class OpenDungeonEngine {
   private resetObject(status: string) {
     this.objectState = { ...INITIAL_OBJECT_STATE };
     const key = this.items.get('key')!;
+    const potion = this.items.get('potion')!;
     key.state = { ...INITIAL_OBJECT_STATE };
     this.targetHits = 0;
     this.targetPulseSeconds = 0;
@@ -1461,7 +1653,13 @@ export class OpenDungeonEngine {
     this.runeCube.scale.setScalar(1);
     this.runeCube.visible = true;
     this.resetItem(key);
+    this.resetItem(potion);
     this.keyInserted = false;
+    this.potionConsumed = false;
+    this.drinkProgress = 0;
+    this.health = MAX_HEALTH;
+    this.hazardOccupied = false;
+    this.hazardPulseSeconds = 0;
     this.doorOpenAmount = 0;
     this.door.position.y = 1.8;
     this.bagMenuOpen = false;
@@ -1493,6 +1691,9 @@ export class OpenDungeonEngine {
       storedItemCount: this.occupiedSlots().length,
       keyInserted: this.keyInserted,
       doorOpen: !doorBlocksPassage(this.doorOpenAmount),
+      health: this.health,
+      maximumHealth: MAX_HEALTH,
+      potionConsumed: this.potionConsumed,
       status,
     };
     const signature = JSON.stringify(snapshot);
@@ -1503,6 +1704,8 @@ export class OpenDungeonEngine {
 
   private contextualStatus(fallback: string) {
     if (this.keyInserted) return 'Passagem desbloqueada · atravesse a porta do portal.';
+    if (this.health < MAX_HEALTH && !this.potionConsumed) return `Vida ${this.health}/${MAX_HEALTH} · encontre e beba a poção.`;
+    if (this.potionConsumed) return `Poção consumida · vida ${this.health}/${MAX_HEALTH}.`;
     const held = Array.from(this.items.values()).find((item) => item.state.holder);
     if (held) return `${held.label} segura · leve à cintura ou use no objetivo.`;
     const storedCount = this.occupiedSlots().length;
@@ -1567,7 +1770,7 @@ export class OpenDungeonEngine {
   }
 
   private itemCanBeGrabbed(item: ItemRuntime) {
-    if (item.state.holder || item.state.storedSlot !== null || (item.id === 'key' && this.keyInserted)) return false;
+    if (this.itemUnavailable(item)) return false;
     if (!this.renderer.xr.isPresenting) return this.desktopGrabCandidate()?.id === item.id;
     return (['left', 'right'] as const).some((holder) => this.controllerGrabDistance(holder, item) !== null);
   }
@@ -1575,12 +1778,21 @@ export class OpenDungeonEngine {
   private controllerGrabCandidate(holder: 'left' | 'right') {
     let best: { item: ItemRuntime; pullDistance?: number; distance: number } | null = null;
     for (const item of this.items.values()) {
-      if (item.state.holder || item.state.storedSlot !== null || (item.id === 'key' && this.keyInserted)) continue;
+      if (this.itemUnavailable(item)) continue;
       const distance = this.controllerGrabDistance(holder, item);
       if (distance === null || (best && best.distance <= distance)) continue;
       best = { item, distance, pullDistance: distance > GRAB_DISTANCE ? distance : undefined };
     }
     return best;
+  }
+
+  private itemUnavailable(item: ItemRuntime) {
+    return Boolean(
+      item.state.holder
+      || item.state.storedSlot !== null
+      || (item.id === 'key' && this.keyInserted)
+      || (item.id === 'potion' && this.potionConsumed),
+    );
   }
 
   private controllerGrabDistance(holder: 'left' | 'right', item: ItemRuntime) {
