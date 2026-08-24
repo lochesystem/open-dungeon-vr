@@ -1,8 +1,21 @@
+import * as THREE from 'three';
 import type { Point3 } from './objectInteraction';
 
 export const SWORD_GRIP_MIN_Z = -0.96;
 export const SWORD_GRIP_MAX_Z = 0.16;
 export const SWORD_TWO_HAND_MIN_SEPARATION = 0.14;
+
+const SWORD_UPRIGHT_GRIP_OFFSET = new THREE.Quaternion().setFromEuler(
+  new THREE.Euler(Math.PI / 2, 0, 0),
+);
+
+export function uprightSwordGripOffset(): THREE.Quaternion {
+  return SWORD_UPRIGHT_GRIP_OFFSET.clone();
+}
+
+export function uprightSwordRotation(holderWorldRotation: THREE.Quaternion): THREE.Quaternion {
+  return holderWorldRotation.clone().multiply(SWORD_UPRIGHT_GRIP_OFFSET);
+}
 
 export function swordGripAnchor(localPoint: Point3): Point3 {
   return {

@@ -232,6 +232,14 @@ O jogador abre a bolsa, guarda uma poção, uma chave e o cubo rúnico, fecha, c
 - [x] Rotação do pulso continua orientando livremente a defesa após a pegada.
 - [ ] Homologar inclinação e distância final no Meta Quest.
 
+### D3.3.2 — Aquisição ergonômica da espada
+
+- [x] Puxão à distância encaixa a espada pelo punho com a lâmina ereta.
+- [x] Retirada da bolsa usa a mesma pose inicial previsível.
+- [x] Pegada direta próxima continua livre em qualquer trecho e ângulo.
+- [x] Segunda mão e transferência de autoridade continuam disponíveis após o encaixe.
+- [ ] Homologar a pose vertical inicial nas duas mãos no Meta Quest.
+
 ### Experiência
 
 O jogador retira espada e escudo, ataca um boneco, bloqueia um golpe mecânico, executa um parry e quebra o alvo. Um painel mostra somente feedback útil e oferece repetição.

@@ -32,7 +32,7 @@ import {
 } from './objectInteraction';
 import { META_QUEST_PRIMARY_FACE_BUTTON, buttonPressedOnRisingEdge } from './vrInput';
 import { moveVrMenuSelection, vrPauseButtonPressed } from './vrPauseMenu';
-import { secondarySwordGripAnchor, swordGripAnchor } from './swordGrip';
+import { secondarySwordGripAnchor, swordGripAnchor, uprightSwordGripOffset } from './swordGrip';
 import { directionalShieldBlock } from './shieldCombat';
 import { heldShieldPosition, heldShieldRotation } from './shieldGrip';
 import { createVrSessionInit } from './xrSession';
@@ -2364,10 +2364,15 @@ export class OpenDungeonEngine {
         return;
       }
       if (item.id === 'sword') {
-        const anchor = preferHandle || holder === 'desktop'
+        const useDefaultGrip = preferHandle || holder === 'desktop';
+        const anchor = useDefaultGrip
           ? new THREE.Vector3(0, 0, 0.02)
           : this.swordAnchorForController(holder, item);
         this.swordGripAnchors.set(holder, anchor);
+        if (useDefaultGrip) {
+          this.gripRotationOffsets.set(holder, uprightSwordGripOffset());
+          return;
+        }
       }
       const objectRotation = item.object.getWorldQuaternion(new THREE.Quaternion());
       this.gripRotationOffsets.set(holder, captureGripRotationOffset(holderRotation, objectRotation));

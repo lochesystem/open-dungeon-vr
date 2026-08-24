@@ -17,6 +17,19 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D3 — Laboratório de combate estático.
 
+## [0.10.2] — 2026-08-24
+
+### Alterado
+
+- Puxão assistido da espada e retirada da bolsa agora encaixam automaticamente no punho com a lâmina ereta.
+- Pegada direta próxima continua preservando livremente o ponto e o ângulo físico escolhidos.
+- Aquisição padrão deixou de herdar a rotação do suporte ou da prévia do inventário.
+
+### Validado
+
+- Testes confirmam alinhamento vertical determinístico e cópias independentes do offset de empunhadura.
+- Suíte ampliada para 57 testes.
+
 ## [0.10.1] — 2026-08-24
 
 ### Alterado
