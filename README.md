@@ -43,7 +43,7 @@ Retire a chave do inventário e solte-a junto à fechadura do portal para abrir 
 Após sofrer dano na runa, leve a poção à boca, incline o frasco e mantenha a pose brevemente para recuperar vida e liberar o slot.
 Se um item sair dos limites da sala, ele retorna ao último slot válido; se isso não for possível, usa outro slot livre ou volta ao pedestal.
 Para o treino D3.2, puxe a espada da lateral esquerda e atravesse o volume do boneco com golpes rápidos e deliberados. O boneco é imortal e contabiliza os acertos indefinidamente. Pegue diretamente qualquer trecho da espada para escolher o ponto e o ângulo; mantenha o gatilho da outra mão sobre um segundo trecho para manipulação bimanual. No desktop, segure a espada, aproxime-se e pressione `J`.
-Para o treino D3.3, puxe o escudo do suporte à direita. Um projétil anuncia o ataque antes de avançar: coloque o disco no caminho e mantenha a face decorada voltada para a origem. Contato pelo verso, fora do raio ou em ângulo rasante não bloqueia. Os ataques são não letais e o ciclo continua enquanto o escudo estiver equipado.
+Para o treino D3.3, puxe o escudo do suporte à direita. Ele encaixa automaticamente pela alça em uma posição ergonômica, sempre com a face decorada para a frente; depois disso, o pulso orienta a defesa normalmente. Um projétil anuncia o ataque antes de avançar: coloque o disco no caminho e mantenha a face decorada voltada para a origem. Contato pelo verso, fora do raio ou em ângulo rasante não bloqueia. Os ataques são não letais e o ciclo continua enquanto o escudo estiver equipado.
 
 ## Meta Quest pelo GitHub Pages
 

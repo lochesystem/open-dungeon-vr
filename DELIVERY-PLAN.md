@@ -224,6 +224,14 @@ O jogador abre a bolsa, guarda uma poção, uma chave e o cubo rúnico, fecha, c
 - [x] Ciclo reinicia automaticamente enquanto o escudo está equipado.
 - [ ] Homologar tamanho, ritmo e cone de bloqueio no Meta Quest.
 
+### D3.3.1 — Empunhadura ergonômica do escudo
+
+- [x] Escudo ignora a orientação casual em que foi tocado ou puxado.
+- [x] Face decorada é alinhada de forma determinística ao eixo frontal do controle.
+- [x] Alça traseira coincide com a mão e mantém o disco à frente do punho.
+- [x] Rotação do pulso continua orientando livremente a defesa após a pegada.
+- [ ] Homologar inclinação e distância final no Meta Quest.
+
 ### Experiência
 
 O jogador retira espada e escudo, ataca um boneco, bloqueia um golpe mecânico, executa um parry e quebra o alvo. Um painel mostra somente feedback útil e oferece repetição.

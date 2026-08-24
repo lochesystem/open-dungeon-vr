@@ -17,6 +17,19 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D3 — Laboratório de combate estático.
 
+## [0.10.1] — 2026-08-24
+
+### Alterado
+
+- Escudo agora usa uma empunhadura ergonômica fixa em vez de preservar o ângulo casual do momento da coleta.
+- Face decorada permanece sempre voltada para a frente do controle e a alça traseira coincide com o ponto da mão.
+- Centro do disco fica ligeiramente à frente do punho, evitando interseção visual e pegadas invertidas.
+
+### Validado
+
+- Testes garantem alinhamento frontal, coincidência entre mão e alça e independência da orientação anterior do objeto.
+- Suíte ampliada para 55 testes.
+
 ## [0.10.0] — 2026-08-24
 
 ### Adicionado

@@ -34,6 +34,7 @@ import { META_QUEST_PRIMARY_FACE_BUTTON, buttonPressedOnRisingEdge } from './vrI
 import { moveVrMenuSelection, vrPauseButtonPressed } from './vrPauseMenu';
 import { secondarySwordGripAnchor, swordGripAnchor } from './swordGrip';
 import { directionalShieldBlock } from './shieldCombat';
+import { heldShieldPosition, heldShieldRotation } from './shieldGrip';
 import { createVrSessionInit } from './xrSession';
 
 export type InteractionSnapshot = {
@@ -1489,9 +1490,11 @@ export class OpenDungeonEngine {
       const holder = item.state.holder;
       const holderRotation = this.holderWorldRotation(holder);
       const gripOffset = this.gripRotationOffsets.get(holder);
-      let targetRotation = holderRotation && gripOffset
-        ? heldObjectRotation(holderRotation, gripOffset)
-        : item.object.quaternion.clone();
+      let targetRotation = item.id === 'shield' && holderRotation
+        ? heldShieldRotation(holderRotation)
+        : holderRotation && gripOffset
+          ? heldObjectRotation(holderRotation, gripOffset)
+          : item.object.quaternion.clone();
       if (item.id === 'sword' && item.secondaryHolder) {
         targetRotation = this.twoHandedSwordRotation(item, targetRotation);
       }
@@ -2183,6 +2186,13 @@ export class OpenDungeonEngine {
   }
 
   private heldObjectPosition(holder: Holder, item = this.cube, objectRotation?: THREE.Quaternion) {
+    if (item.id === 'shield' && objectRotation) {
+      const source = holder === 'desktop' ? this.camera : this.controllers.get(holder);
+      if (!source) return item.object.position.clone();
+      const controllerPosition = source.getWorldPosition(new THREE.Vector3());
+      const controllerRotation = source.getWorldQuaternion(new THREE.Quaternion());
+      return heldShieldPosition(controllerPosition, controllerRotation, objectRotation);
+    }
     let gripPosition: THREE.Vector3;
     if (holder === 'desktop') {
       this.camera.getWorldPosition(this.worldPosition);
@@ -2349,6 +2359,10 @@ export class OpenDungeonEngine {
     this.scene.updateMatrixWorld(true);
     const holderRotation = this.holderWorldRotation(holder);
     if (holderRotation) {
+      if (item.id === 'shield') {
+        this.gripRotationOffsets.delete(holder);
+        return;
+      }
       if (item.id === 'sword') {
         const anchor = preferHandle || holder === 'desktop'
           ? new THREE.Vector3(0, 0, 0.02)
