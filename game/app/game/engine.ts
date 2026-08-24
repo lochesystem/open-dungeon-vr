@@ -129,7 +129,6 @@ export class OpenDungeonEngine {
   private frameCount = 0;
   private statsSeconds = 0;
   private yaw = 0;
-  private xrTurnLatched = false;
   private paused = false;
   private disposed = false;
   private readonly quest: boolean;
@@ -193,7 +192,6 @@ export class OpenDungeonEngine {
     this.playerRig.rotation.set(0, 0, 0);
     this.camera.position.set(0, PLAYER_HEIGHT, 0);
     this.yaw = 0;
-    this.xrTurnLatched = false;
     this.camera.rotation.set(0, 0, 0);
     this.lastFrameSeconds = 0;
   }
@@ -573,12 +571,6 @@ export class OpenDungeonEngine {
         }
       }
 
-      if (Math.abs(turn) > 0.72 && !this.xrTurnLatched) {
-        this.yaw -= Math.sign(turn) * THREE.MathUtils.degToRad(30);
-        this.xrTurnLatched = true;
-      } else if (Math.abs(turn) < 0.35) {
-        this.xrTurnLatched = false;
-      }
     } else {
       const gamepad = Array.from(navigator.getGamepads?.() ?? []).find((candidate) => candidate?.connected);
       if (gamepad) {
@@ -586,8 +578,9 @@ export class OpenDungeonEngine {
         forward -= applyDeadzone(gamepad.axes[1] ?? 0);
         turn += applyDeadzone(gamepad.axes[2] ?? 0);
       }
-      this.yaw -= THREE.MathUtils.clamp(turn, -1, 1) * TURN_SPEED * delta;
     }
+
+    this.yaw -= THREE.MathUtils.clamp(turn, -1, 1) * TURN_SPEED * delta;
 
     const playerPosition = this.getPlayerWorldPosition();
     const safePosition = resolvePosition(playerPosition, PLAYER_RADIUS, ROOM_COLLIDERS, ROOM_BOUNDS);

@@ -17,6 +17,13 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D2 — Bolsa da aventura.
 
+## [0.2.5] — 2026-08-24
+
+### Alterado
+
+- Analógico direito agora gira a câmera continuamente, com velocidade proporcional à inclinação do controle.
+- Snap turn de 30° foi removido do modo VR; a deadzone existente continua filtrando deriva do analógico.
+
 ## [0.2.4] — 2026-08-24
 
 ### Corrigido
