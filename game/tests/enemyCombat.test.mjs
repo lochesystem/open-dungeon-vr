@@ -3,6 +3,8 @@ import test from 'node:test';
 import {
   canResolveEnemyAttack,
   enemyAttackArmAngle,
+  enemyAttackArmInwardAngle,
+  enemyAttackBodyTwist,
   nextEnemyAttackPhase,
 } from '../app/game/enemyCombat.ts';
 
@@ -25,8 +27,18 @@ test('leaving combat range cancels every pending attack phase', () => {
   assert.equal(nextEnemyAttackPhase('recover', false, false), 'ready');
 });
 
-test('mace visibly winds up, crosses forward, and recovers', () => {
-  assert.ok(enemyAttackArmAngle('windup', 1) > 0.8);
-  assert.ok(enemyAttackArmAngle('swing', 1) < -1.2);
+test('mace rises overhead, chops downward and crosses toward the body centre', () => {
+  const overhead = enemyAttackArmAngle('windup', 1);
+  const impact = enemyAttackArmAngle('swing', 1);
+  const overheadTipHeight = -Math.cos(overhead);
+  const impactTipHeight = -Math.cos(impact);
+  assert.ok(overhead < -2.1);
+  assert.ok(impact > overhead);
+  assert.ok(impact < -1);
+  assert.ok(overheadTipHeight > impactTipHeight);
+  assert.ok(enemyAttackArmInwardAngle('swing', 1) < -0.5);
+  assert.ok(enemyAttackBodyTwist('windup', 1) > 0.15);
+  assert.ok(enemyAttackBodyTwist('swing', 1) < 0);
   assert.ok(Math.abs(enemyAttackArmAngle('recover', 1)) < 1e-7);
+  assert.ok(Math.abs(enemyAttackArmInwardAngle('recover', 1)) < 1e-7);
 });

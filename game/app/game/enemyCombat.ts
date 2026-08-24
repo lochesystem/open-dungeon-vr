@@ -20,12 +20,34 @@ export function nextEnemyAttackPhase(
 
 export function enemyAttackArmAngle(phase: EnemyAttackPhase, progress: number): number {
   const t = Math.max(0, Math.min(1, progress));
-  if (phase === 'windup') return 0.82 * (1 - (1 - t) ** 3);
+  if (phase === 'windup') return -2.18 * (1 - (1 - t) ** 3);
   if (phase === 'swing') {
     const eased = t * t * (3 - 2 * t);
-    return 0.82 + (-1.28 - 0.82) * eased;
+    return -2.18 + (-1.05 - -2.18) * eased;
   }
-  if (phase === 'recover') return -1.28 * (1 - t);
+  if (phase === 'recover') return -1.05 * (1 - t);
+  return 0;
+}
+
+export function enemyAttackArmInwardAngle(phase: EnemyAttackPhase, progress: number): number {
+  const t = Math.max(0, Math.min(1, progress));
+  if (phase === 'windup') return -0.18 * (1 - (1 - t) ** 3);
+  if (phase === 'swing') {
+    const eased = t * t * (3 - 2 * t);
+    return -0.18 + (-0.58 - -0.18) * eased;
+  }
+  if (phase === 'recover') return -0.58 * (1 - t);
+  return 0;
+}
+
+export function enemyAttackBodyTwist(phase: EnemyAttackPhase, progress: number): number {
+  const t = Math.max(0, Math.min(1, progress));
+  if (phase === 'windup') return 0.18 * (1 - (1 - t) ** 3);
+  if (phase === 'swing') {
+    const eased = t * t * (3 - 2 * t);
+    return 0.18 + (-0.12 - 0.18) * eased;
+  }
+  if (phase === 'recover') return -0.12 * (1 - t);
   return 0;
 }
 

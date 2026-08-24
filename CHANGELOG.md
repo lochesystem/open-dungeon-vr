@@ -17,6 +17,19 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D3 — Laboratório de combate estático.
 
+## [0.12.1] — 2026-08-24
+
+### Corrigido
+
+- Golpe da maça deixa de subir a partir de baixo e passa a descer de uma pose acima do ombro.
+- Braço cruza levemente para o centro durante o impacto, em vez de permanecer rígido na lateral.
+- Tronco antecipa e acompanha o golpe com uma torção curta, retornando à pose neutra na recuperação ou ao cancelar o ataque.
+
+### Validado
+
+- Teste geométrico confirma que a ponta da maça termina abaixo da posição de preparo.
+- Suíte permanece com 66 testes.
+
 ## [0.12.0] — 2026-08-24
 
 ### Adicionado

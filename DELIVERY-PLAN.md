@@ -304,6 +304,7 @@ O blockout D4.1 estabeleceu a locomoção sem ataques; a fatia seguinte conecta 
 ### D4.2 — Primeiro ataque corpo a corpo
 
 - [x] Guardião recebe uma maça procedural presa à hierarquia do braço direito.
+- [x] Golpe parte acima do ombro, desce sobre o jogador e cruza para o centro com rotação coordenada do tronco.
 - [x] Ciclo explícito de preparo, golpe, recuperação e prontidão reinicia somente dentro do alcance.
 - [x] Ponta da maça usa trajetória varrida para não atravessar escudo ou jogador entre frames.
 - [x] Face e área válidas do escudo interrompem o golpe com áudio e resposta háptica próprios.

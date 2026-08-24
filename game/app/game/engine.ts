@@ -43,6 +43,8 @@ import {
   ENEMY_WINDUP_SECONDS,
   canResolveEnemyAttack,
   enemyAttackArmAngle,
+  enemyAttackArmInwardAngle,
+  enemyAttackBodyTwist,
   nextEnemyAttackPhase,
   type EnemyAttackPhase,
 } from './enemyCombat';
@@ -1606,6 +1608,9 @@ export class OpenDungeonEngine {
       this.enemyAttackSeconds = 0;
       this.enemyAttackResolved = false;
       this.enemyWeaponTipReady = false;
+      const resetBlend = 1 - Math.exp(-12 * delta);
+      this.guardianRightArm.rotation.z += (0 - this.guardianRightArm.rotation.z) * resetBlend;
+      this.guardianBody.rotation.y += (0 - this.guardianBody.rotation.y) * resetBlend;
       return;
     }
 
@@ -1614,6 +1619,8 @@ export class OpenDungeonEngine {
     const duration = this.enemyAttackDuration(this.enemyAttackPhase);
     const progress = duration > 0 ? 1 - this.enemyAttackSeconds / duration : 1;
     this.guardianRightArm.rotation.x = enemyAttackArmAngle(this.enemyAttackPhase, progress);
+    this.guardianRightArm.rotation.z = enemyAttackArmInwardAngle(this.enemyAttackPhase, progress);
+    this.guardianBody.rotation.y = enemyAttackBodyTwist(this.enemyAttackPhase, progress);
 
     if (this.enemyAttackPhase === 'swing') {
       this.guardian.updateMatrixWorld(true);
