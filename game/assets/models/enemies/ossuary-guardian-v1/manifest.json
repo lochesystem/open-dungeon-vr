@@ -4,13 +4,19 @@
   "generator": "three-gltfexporter",
   "license": "project-original",
   "concept": "../../../concepts/ossuary-guardian-v1/ossuary-guardian-turnaround-v1.png",
-  "script": "../../../scripts/generate-ossuary-guardian.mjs",
+  "script": "../../../../scripts/generate-ossuary-guardian.mjs",
   "targetRig": "humanoid_large_v1",
   "lods": [
     "ossuary-guardian-lod0.glb",
     "ossuary-guardian-lod1.glb"
   ],
   "qaReport": "qa-report.json",
-  "status": "candidate-awaiting-visual-approval",
+  "rig": {
+    "bones": 25,
+    "skinning": "rigid-per-modular-piece",
+    "animations": ["idle", "walk"],
+    "sockets": ["socket_hand_left", "socket_hand_right", "socket_weapon_right", "socket_memory_rune", "socket_hit_head", "socket_hit_chest"]
+  },
+  "status": "rigged-candidate-awaiting-motion-approval",
   "approved": false
 }

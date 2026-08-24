@@ -162,6 +162,138 @@ function addMace(root, materials, detail) {
   root.add(mace);
 }
 
+function addBone(name, parent, position) {
+  const bone = new THREE.Bone();
+  bone.name = name;
+  bone.position.set(...position);
+  parent?.add(bone);
+  return bone;
+}
+
+function buildSkeleton() {
+  const bones = {};
+  bones.rigRoot = addBone('rig_root', null, [0, 0, 0]);
+  bones.hips = addBone('hips', bones.rigRoot, [0, 0.86, 0]);
+  bones.spine = addBone('spine_bone', bones.hips, [0, 0.24, 0]);
+  bones.chest = addBone('chest', bones.spine, [0, 0.24, 0]);
+  bones.neck = addBone('neck', bones.chest, [0, 0.39, 0]);
+  bones.head = addBone('head', bones.neck, [0, 0.23, 0]);
+
+  for (const side of ['left', 'right']) {
+    const sign = side === 'left' ? -1 : 1;
+    bones[`${side}UpperArm`] = addBone(`${side}_upper_arm`, bones.chest, [sign * 0.48, 0.18, 0]);
+    bones[`${side}Forearm`] = addBone(`${side}_forearm`, bones[`${side}UpperArm`], [0, -0.48, 0]);
+    bones[`${side}Hand`] = addBone(`${side}_hand_bone`, bones[`${side}Forearm`], [0, -0.45, 0.015]);
+    bones[`${side}UpperLeg`] = addBone(`${side}_upper_leg`, bones.hips, [sign * 0.19, -0.02, 0]);
+    bones[`${side}LowerLeg`] = addBone(`${side}_lower_leg`, bones[`${side}UpperLeg`], [0, -0.4, 0]);
+    bones[`${side}Foot`] = addBone(`${side}_foot`, bones[`${side}LowerLeg`], [0, -0.36, 0.09]);
+    addBone(`socket_hand_${side}`, bones[`${side}Hand`], [0, -0.1, 0.04]);
+  }
+
+  addBone('socket_weapon_right', bones.rightHand, [0, -0.1, 0.04]);
+  addBone('socket_memory_rune', bones.chest, [0, 0.03, 0.27]);
+  addBone('socket_hit_head', bones.head, [0, 0.05, 0.12]);
+  addBone('socket_hit_chest', bones.chest, [0, 0, 0.16]);
+  bones.propMace = addBone('prop_mace', bones.rigRoot, [0.86, 0.12, 0]);
+  return bones;
+}
+
+function boneForPart(name, bones) {
+  if (name.startsWith('mace_')) return bones.propMace;
+  if (/skull|eye_|nose_|tooth_/.test(name)) return bones.head;
+  if (/neck_|gorget/.test(name)) return bones.neck;
+  if (/pelvis/.test(name)) return bones.hips;
+  if (name === 'spine') return bones.spine;
+  for (const side of ['left', 'right']) {
+    if (!name.startsWith(`${side}_`)) continue;
+    if (/finger|hand/.test(name)) return bones[`${side}Hand`];
+    if (/forearm|bracer|elbow/.test(name)) return bones[`${side}Forearm`];
+    if (/upper_arm|shoulder|pauldron/.test(name)) return bones[`${side}UpperArm`];
+    if (/boot|toe/.test(name)) return bones[`${side}Foot`];
+    if (/shin|greave|knee/.test(name)) return bones[`${side}LowerLeg`];
+    if (/hip|thigh/.test(name)) return bones[`${side}UpperLeg`];
+  }
+  return bones.chest;
+}
+
+function quaternionValues(angles) {
+  return angles.flatMap(([x, y, z]) => {
+    const quaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(x, y, z));
+    return [quaternion.x, quaternion.y, quaternion.z, quaternion.w];
+  });
+}
+
+function rotationTrack(bone, times, angles) {
+  return new THREE.QuaternionKeyframeTrack(`${bone.name}.quaternion`, times, quaternionValues(angles));
+}
+
+function buildAnimations(bones) {
+  const idleTimes = [0, 1.2, 2.4];
+  const idle = new THREE.AnimationClip('idle', 2.4, [
+    rotationTrack(bones.chest, idleTimes, [[0, 0, 0], [0, 0.035, 0.025], [0, 0, 0]]),
+    rotationTrack(bones.head, idleTimes, [[0, 0, 0], [-0.025, -0.08, 0], [0, 0, 0]]),
+    rotationTrack(bones.leftUpperArm, idleTimes, [[0, 0, 0], [0.025, 0, -0.02], [0, 0, 0]]),
+    rotationTrack(bones.rightUpperArm, idleTimes, [[0, 0, 0], [-0.025, 0, 0.02], [0, 0, 0]]),
+  ]);
+
+  const walkTimes = [0, 0.2, 0.4, 0.6, 0.8];
+  const swing = (amount) => [[amount, 0, 0], [0, 0, 0], [-amount, 0, 0], [0, 0, 0], [amount, 0, 0]];
+  const walk = new THREE.AnimationClip('walk', 0.8, [
+    rotationTrack(bones.leftUpperLeg, walkTimes, swing(0.42)),
+    rotationTrack(bones.rightUpperLeg, walkTimes, swing(-0.42)),
+    rotationTrack(bones.leftLowerLeg, walkTimes, [[0, 0, 0], [0.18, 0, 0], [0.48, 0, 0], [0.12, 0, 0], [0, 0, 0]]),
+    rotationTrack(bones.rightLowerLeg, walkTimes, [[0.48, 0, 0], [0.12, 0, 0], [0, 0, 0], [0.18, 0, 0], [0.48, 0, 0]]),
+    rotationTrack(bones.leftUpperArm, walkTimes, swing(-0.3)),
+    rotationTrack(bones.rightUpperArm, walkTimes, swing(0.3)),
+    rotationTrack(bones.chest, walkTimes, [[0, -0.04, 0], [0, 0, 0], [0, 0.04, 0], [0, 0, 0], [0, -0.04, 0]]),
+  ]);
+  return [idle, walk];
+}
+
+function rigGuardian(sourceRoot) {
+  sourceRoot.updateMatrixWorld(true);
+  const sourceMeshes = [];
+  sourceRoot.traverse((object) => {
+    if (object.isMesh) sourceMeshes.push(object);
+  });
+
+  const root = new THREE.Group();
+  root.name = sourceRoot.name;
+  root.userData = { ...sourceRoot.userData, rigged: true };
+  const bones = buildSkeleton();
+  root.add(bones.rigRoot);
+  root.updateMatrixWorld(true);
+  const skeleton = new THREE.Skeleton(Object.values(bones));
+  skeleton.calculateInverses();
+  const boneIndices = new Map(skeleton.bones.map((bone, index) => [bone, index]));
+
+  for (const source of sourceMeshes) {
+    const geometry = source.geometry.clone();
+    geometry.applyMatrix4(source.matrixWorld);
+    const bone = boneForPart(source.name, bones);
+    const vertexCount = geometry.attributes.position.count;
+    const skinIndices = new Uint16Array(vertexCount * 4);
+    const skinWeights = new Float32Array(vertexCount * 4);
+    for (let vertex = 0; vertex < vertexCount; vertex += 1) {
+      skinIndices[vertex * 4] = boneIndices.get(bone);
+      skinWeights[vertex * 4] = 1;
+    }
+    geometry.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(skinIndices, 4));
+    geometry.setAttribute('skinWeight', new THREE.Float32BufferAttribute(skinWeights, 4));
+    const mesh = new THREE.SkinnedMesh(geometry, source.material);
+    mesh.name = source.name;
+    mesh.userData = { ...source.userData, weightedBone: bone.name };
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.bind(skeleton, new THREE.Matrix4());
+    root.add(mesh);
+  }
+
+  root.animations = buildAnimations(bones);
+  root.updateMatrixWorld(true);
+  return root;
+}
+
 function buildGuardian(detail) {
   const materials = materialLibrary();
   const root = new THREE.Group();
@@ -209,7 +341,7 @@ function buildGuardian(detail) {
     if (object.isMesh) object.userData.part = object.name;
   });
   root.updateMatrixWorld(true);
-  return root;
+  return rigGuardian(root);
 }
 
 function metricsFor(root) {
@@ -233,6 +365,8 @@ function metricsFor(root) {
     materials: materials.size,
     vertices,
     triangles: Math.round(triangles),
+    bones: root.getObjectsByProperty('isBone', true).length,
+    animations: root.animations.map((clip) => clip.name),
     bounds: {
       width: Number(size.x.toFixed(3)),
       height: Number(size.y.toFixed(3)),
@@ -248,6 +382,7 @@ async function exportGlb(root, outputPath) {
     trs: true,
     onlyVisible: false,
     includeCustomExtensions: true,
+    animations: root.animations,
   });
   await writeFile(outputPath, Buffer.from(result));
 }

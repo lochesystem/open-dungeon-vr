@@ -48,22 +48,37 @@ controls.maxDistance = 8;
 const loader = new GLTFLoader();
 const status = document.querySelector('#status');
 let candidate;
+let mixer;
+let activeAnimation = 'idle';
+
+function playAnimation(name) {
+  activeAnimation = name;
+  document.querySelectorAll('[data-animation]').forEach((button) => button.classList.toggle('active', button.dataset.animation === name));
+  if (!mixer || !candidate) return;
+  mixer.stopAllAction();
+  const clip = THREE.AnimationClip.findByName(candidate.animations, name);
+  if (clip) mixer.clipAction(clip).reset().play();
+}
 
 async function showLod(lod) {
   status.textContent = `Carregando LOD${lod}…`;
-  document.querySelectorAll('button').forEach((button) => button.classList.toggle('active', button.dataset.lod === `${lod}`));
+  document.querySelectorAll('[data-lod]').forEach((button) => button.classList.toggle('active', button.dataset.lod === `${lod}`));
   if (candidate) scene.remove(candidate);
   const result = await loader.loadAsync(`../assets/models/enemies/ossuary-guardian-v1/ossuary-guardian-lod${lod}.glb`);
   candidate = result.scene;
+  candidate.animations = result.animations;
+  mixer = new THREE.AnimationMixer(candidate);
   candidate.traverse((object) => {
     if (object.isMesh) object.castShadow = true;
   });
   scene.add(candidate);
+  playAnimation(activeAnimation);
   const triangles = lod === 0 ? '4.114' : '1.654';
   status.textContent = `LOD${lod} · ${triangles} triângulos · 2,23 m`;
 }
 
-document.querySelectorAll('button').forEach((button) => button.addEventListener('click', () => showLod(Number(button.dataset.lod))));
+document.querySelectorAll('[data-lod]').forEach((button) => button.addEventListener('click', () => showLod(Number(button.dataset.lod))));
+document.querySelectorAll('[data-animation]').forEach((button) => button.addEventListener('click', () => playAnimation(button.dataset.animation)));
 showLod(0).catch((error) => { status.textContent = `Falha ao carregar: ${error.message}`; });
 
 addEventListener('resize', () => {
@@ -76,6 +91,7 @@ renderer.setAnimationLoop(() => {
   const currentFrameTime = performance.now();
   const delta = Math.min((currentFrameTime - previousFrameTime) / 1_000, 0.05);
   previousFrameTime = currentFrameTime;
+  mixer?.update(delta);
   if (candidate && turntableEnabled) candidate.rotation.y += delta * 0.54;
   controls.update();
   renderer.render(scene, camera);

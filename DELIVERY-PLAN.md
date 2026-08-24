@@ -333,8 +333,9 @@ A D4.2 fechou o primeiro ciclo ofensivo e abriu caminho para tornar o Guardião 
 - [x] Candidato de malha modular v1 exportado em GLB e validado automaticamente.
 - [ ] Modelo 3D gerado por IA.
 - [ ] Texturas próprias.
-- [ ] Rig humanoide.
-- [ ] Idle, caminhada, ataque, stagger e morte.
+- [x] Rig humanoide `humanoid_large_v1` com 25 ossos, skinning e sockets.
+- [x] Idle e caminhada incorporados aos dois GLBs.
+- [ ] Ataque, stagger e morte incorporados aos dois GLBs.
 - [x] Dois níveis de detalhe candidatos para o Quest (4.114 e 1.654 triângulos).
 - [ ] Substituição do blockout sem alterar gameplay.
 

@@ -16,11 +16,15 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Candidato modular 3D do Guardião Ossário exportado em GLB nos níveis LOD0 e LOD1.
 - Gerador procedural reprodutível, manifesto do modelo, relatório de orçamento e página local de inspeção visual.
 - Turntable animado do LOD0 com frente, laterais e costas para revisão visual.
+- Rig humanoide `humanoid_large_v1` com 25 ossos, skinning rígido modular e sockets para mãos, arma, runa e impactos.
+- Clipes `idle` e `walk` incorporados aos arquivos LOD0 e LOD1, com seletor na página de inspeção.
+- GIF de validação do ciclo de caminhada do modelo rigado.
 
 ### Validado
 
 - LOD0 possui 4.114 triângulos e LOD1 possui 1.654, redução de aproximadamente 60%.
 - Teste verifica cabeçalho GLB, existência dos arquivos, escala, materiais e orçamento dos dois LODs.
+- Teste abre o conteúdo dos GLBs e confirma skins, pesos, ossos obrigatórios, sockets e os dois clipes de animação.
 
 ### Planejado
 
