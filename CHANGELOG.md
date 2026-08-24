@@ -17,6 +17,19 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D2 — Bolsa da aventura.
 
+## [0.2.2] — 2026-08-24
+
+### Corrigido
+
+- Sala recalibrada para a faixa de contraste do Meta Quest, reduzindo black crush sem remover a atmosfera escura.
+- Piso agora é bilateral e continua visível mesmo diante de uma referência de chão incorreta do dispositivo.
+- Fog teve densidade reduzida e materiais de pedra receberam maior separação tonal.
+- Iluminação hemisférica e direcional reforçada para leitura espacial no headset.
+
+### Adicionado
+
+- Anel de spawn e balizas rúnicas com material não iluminado, oferecendo referências inequívocas de chão, escala e posição.
+
 ## [0.2.1] — 2026-08-24
 
 ### Corrigido

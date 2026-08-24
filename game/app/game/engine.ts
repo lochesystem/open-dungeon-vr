@@ -145,8 +145,8 @@ export class OpenDungeonEngine {
     this.renderer.domElement.setAttribute('aria-label', 'Sala tridimensional da fundação de Open Dungeon VR');
     container.appendChild(this.renderer.domElement);
 
-    this.scene.background = new THREE.Color(0x06080b);
-    this.scene.fog = new THREE.FogExp2(0x070a0d, 0.035);
+    this.scene.background = new THREE.Color(0x0c1519);
+    this.scene.fog = new THREE.FogExp2(0x0c1519, 0.022);
     this.camera.position.set(0, PLAYER_HEIGHT, 0);
     this.playerRig.position.set(0, 0, 6.8);
     this.playerRig.add(this.camera);
@@ -223,29 +223,42 @@ export class OpenDungeonEngine {
     return material;
   }
 
+  private basicMaterial(parameters: THREE.MeshBasicMaterialParameters) {
+    const material = new THREE.MeshBasicMaterial(parameters);
+    this.disposableMaterials.add(material);
+    return material;
+  }
+
   private geometry<T extends THREE.BufferGeometry>(geometry: T): T {
     this.disposableGeometries.add(geometry);
     return geometry;
   }
 
   private buildRoom() {
-    const floorMaterial = this.material({ color: 0x1b211f, roughness: 0.92, metalness: 0.04 });
+    const floorMaterial = this.material({
+      color: 0x35423d,
+      emissive: 0x081713,
+      emissiveIntensity: 0.72,
+      roughness: 0.92,
+      metalness: 0.04,
+      side: THREE.DoubleSide,
+    });
     const floor = new THREE.Mesh(this.geometry(new THREE.PlaneGeometry(24, 24, 12, 12)), floorMaterial);
     floor.rotation.x = -Math.PI / 2;
     this.scene.add(floor);
 
-    const grid = new THREE.GridHelper(24, 24, 0x3c866f, 0x182d29);
+    const grid = new THREE.GridHelper(24, 24, 0x69e8c2, 0x294c43);
     grid.position.y = 0.008;
     const gridMaterials = Array.isArray(grid.material) ? grid.material : [grid.material];
     gridMaterials.forEach((material) => {
       material.transparent = true;
-      material.opacity = 0.36;
+      material.opacity = 0.64;
       this.disposableMaterials.add(material);
     });
     this.disposableGeometries.add(grid.geometry);
     this.scene.add(grid);
 
-    const stone = this.material({ color: 0x262925, roughness: 0.8, metalness: 0.08 });
+    const stone = this.material({ color: 0x4b514a, roughness: 0.8, metalness: 0.08 });
     const bronze = this.material({ color: 0x8b5b2f, roughness: 0.42, metalness: 0.65 });
     const rune = this.material({ color: 0x40e0b4, emissive: 0x18b992, emissiveIntensity: 2.2, roughness: 0.2 });
 
@@ -299,6 +312,25 @@ export class OpenDungeonEngine {
     crystal.position.set(0, 1.55, 0.5);
     this.scene.add(crystal);
 
+    const guideMaterial = this.basicMaterial({
+      color: 0x51e6b8,
+      transparent: true,
+      opacity: 0.9,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const spawnRing = new THREE.Mesh(this.geometry(new THREE.RingGeometry(1.15, 1.24, 48)), guideMaterial);
+    spawnRing.rotation.x = -Math.PI / 2;
+    spawnRing.position.set(0, 0.025, 6.8);
+    this.scene.add(spawnRing);
+
+    const guideGeometry = this.geometry(new THREE.BoxGeometry(0.09, 1.6, 0.09));
+    for (const x of [-4, 4]) {
+      const guide = new THREE.Mesh(guideGeometry, guideMaterial);
+      guide.position.set(x, 0.8, 3.8);
+      this.scene.add(guide);
+    }
+
     const pedestal = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(1.16, 1.05, 1.16)), stone);
     pedestal.position.set(CUBE_HOME.x, 0.525, CUBE_HOME.z);
     this.scene.add(pedestal);
@@ -337,9 +369,9 @@ export class OpenDungeonEngine {
     targetGroup.add(targetStand);
     this.scene.add(targetGroup);
 
-    const hemi = new THREE.HemisphereLight(0x9fdacb, 0x11130f, 1.8);
+    const hemi = new THREE.HemisphereLight(0xc8fff1, 0x273129, 2.8);
     this.scene.add(hemi);
-    const key = new THREE.DirectionalLight(0xffd8a8, 2.6);
+    const key = new THREE.DirectionalLight(0xffe0bd, 3.6);
     key.position.set(-4, 8, 5);
     this.scene.add(key);
     const portalLight = new THREE.PointLight(0x30d7aa, 18, 11, 2);
