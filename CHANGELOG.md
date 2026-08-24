@@ -17,6 +17,19 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D3 — Laboratório de combate estático.
 
+## [0.10.4] — 2026-08-24
+
+### Corrigido
+
+- Pose do escudo passou do eixo vertical do controle para o eixo lateral externo real de cada mão.
+- Mão esquerda e direita agora recebem rotações espelhadas, impedindo que o disco apareça como uma bandeja acima do jogador.
+- Alça traseira voltou ao eixo longitudinal correto após o espelhamento.
+
+### Validado
+
+- Testes verificam lado externo independente para cada mão, posição da alça e impossibilidade de inversão casual.
+- Suíte ampliada para 59 testes.
+
 ## [0.10.3] — 2026-08-24
 
 ### Corrigido

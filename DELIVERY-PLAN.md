@@ -248,6 +248,14 @@ O jogador abre a bolsa, guarda uma poção, uma chave e o cubo rúnico, fecha, c
 - [x] Pegada livre direta e manipulação bimanual da espada permanecem inalteradas.
 - [ ] Homologar os dois eixos corrigidos no Meta Quest.
 
+### D3.3.4 — Apoio lateral do escudo no Quest
+
+- [x] Remover apoio incorreto no eixo superior do controle.
+- [x] Espelhar a pose para o lado externo da mão esquerda e da mão direita.
+- [x] Manter o disco centrado na alça sem ocupar a visão acima do punho.
+- [x] Alinhar a alça no sentido punho–dedos em ambas as mãos.
+- [ ] Homologar distância lateral final no Meta Quest.
+
 ### Experiência
 
 O jogador retira espada e escudo, ataca um boneco, bloqueia um golpe mecânico, executa um parry e quebra o alvo. Um painel mostra somente feedback útil e oferece repetição.
