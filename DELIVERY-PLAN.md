@@ -152,6 +152,17 @@ O jogador pega um cubo rúnico, troca de mão, solta, arremessa em um alvo e rec
 - [x] Painel de conforto está disponível antes da sessão VR e novamente na pausa desktop.
 - [ ] Homologar alcance sentado, modo de uma mão e ajuste fino de cintura/distância no Meta Quest.
 
+### D2.5 — Pausa e conforto dentro do VR
+
+- [x] Menu de pausa é renderizado como painel 3D dentro da sessão WebXR.
+- [x] Botão de menu esquerdo abre/fecha quando exposto pelo navegador; clique do analógico esquerdo é o fallback.
+- [x] Analógico esquerdo navega verticalmente e ajusta opções horizontalmente.
+- [x] Gatilho confirma continuar, alternar opções, reiniciar sala ou sair do VR.
+- [x] Postura, mão dominante, modo de uma mão, cintura e distância permanecem sincronizados com a interface 2D.
+- [x] Gameplay e física ficam suspensos enquanto o menu espacial está aberto.
+- [x] Item segurado não é solto ao usar o gatilho no menu.
+- [ ] Confirmar no Meta Quest se a versão atual do Quest Browser expõe o botão de menu reservado.
+
 ### Experiência
 
 O jogador abre a bolsa, guarda uma poção, uma chave e o cubo rúnico, fecha, caminha, reabre e recupera cada item. Usa a poção, abre uma fechadura com a chave e termina o pequeno desafio.

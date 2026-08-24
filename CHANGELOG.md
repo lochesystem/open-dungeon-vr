@@ -17,6 +17,21 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D3 — Laboratório de combate estático.
 
+## [0.7.0] — 2026-08-24
+
+### Adicionado
+
+- Menu de pausa e conforto inteiramente espacial, visível dentro da sessão VR.
+- Abertura pelo botão de menu esquerdo quando disponibilizado pelo Quest Browser.
+- Clique do analógico esquerdo como fallback para plataformas que reservam o botão de menu.
+- Navegação vertical, ajustes laterais e confirmação pelo gatilho.
+- Ações para continuar, configurar conforto, reiniciar a sala e sair do VR.
+
+### Validado
+
+- Regras de detecção do botão/fallback e navegação circular cobertas por testes headless.
+- Suíte ampliada para 40 testes.
+
 ## [0.6.0] — 2026-08-24
 
 ### Adicionado

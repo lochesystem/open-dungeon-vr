@@ -30,6 +30,7 @@ import {
   sweptTargetHit,
 } from './objectInteraction';
 import { META_QUEST_PRIMARY_FACE_BUTTON, buttonPressedOnRisingEdge } from './vrInput';
+import { moveVrMenuSelection, vrPauseButtonPressed } from './vrPauseMenu';
 import { createVrSessionInit } from './xrSession';
 
 export type InteractionSnapshot = {
@@ -66,6 +67,7 @@ type EngineOptions = {
   onStats?: (fps: number) => void;
   onXrChange?: (active: boolean) => void;
   onInteraction?: (snapshot: InteractionSnapshot) => void;
+  onComfortChange?: (settings: ComfortSettings) => void;
 };
 
 const PLAYER_HEIGHT = 1.68;
@@ -89,6 +91,7 @@ const MAX_HEALTH = 3;
 const LOCK_POSITION = new THREE.Vector3(1.45, 1.18, -7.05);
 const TARGET_POSITION = new THREE.Vector3(3, 2, -4.8);
 const TARGET_RADIUS = 0.72;
+const VR_PAUSE_MENU_ITEM_COUNT = 8;
 
 const PILLAR_COLLIDERS: BoxCollider[] = [-9.6, -6.4, 6.4, 9.6].flatMap((x) =>
   [-9.6, 0, 9.6].map((z) => ({
@@ -212,6 +215,9 @@ export class OpenDungeonEngine {
   private readonly bagSlots: THREE.Mesh[] = [];
   private readonly bagSlotMaterials: THREE.MeshStandardMaterial[] = [];
   private readonly bagMenuMaterial: THREE.MeshBasicMaterial;
+  private readonly vrPauseCanvas: HTMLCanvasElement;
+  private readonly vrPauseTexture: THREE.CanvasTexture;
+  private readonly vrPausePanel: THREE.Mesh;
   private readonly items = new Map<ItemId, ItemRuntime>();
   private readonly door: THREE.Mesh;
   private readonly lockSocket: THREE.Group;
@@ -246,6 +252,12 @@ export class OpenDungeonEngine {
   private desktopBagOpenSeconds = 0;
   private inventoryButtonWasPressed = false;
   private comfort: ComfortSettings = { ...DEFAULT_COMFORT_SETTINGS };
+  private vrPauseMenuOpen = false;
+  private vrPauseMenuIndex = 0;
+  private vrPauseButtonWasPressed = false;
+  private vrPauseAxisReady = true;
+  private vrPauseAdjustReady = true;
+  private readonly vrMenuSelectGuards = new Set<'left' | 'right'>();
   private pullAnimation: {
     itemId: ItemId;
     holder: 'left' | 'right';
@@ -303,6 +315,26 @@ export class OpenDungeonEngine {
       side: THREE.DoubleSide,
       depthWrite: false,
     });
+    this.vrPauseCanvas = document.createElement('canvas');
+    this.vrPauseCanvas.width = 1024;
+    this.vrPauseCanvas.height = 720;
+    this.vrPauseTexture = new THREE.CanvasTexture(this.vrPauseCanvas);
+    this.vrPauseTexture.colorSpace = THREE.SRGBColorSpace;
+    this.vrPausePanel = new THREE.Mesh(
+      this.geometry(new THREE.PlaneGeometry(1.36, 0.96)),
+      this.basicMaterial({
+        map: this.vrPauseTexture,
+        transparent: true,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        toneMapped: false,
+      }),
+    );
+    this.vrPausePanel.name = 'vr-comfort-pause-menu';
+    this.vrPausePanel.renderOrder = 40;
+    this.vrPausePanel.visible = false;
+    this.playerRig.add(this.vrPausePanel);
+    this.drawVrPauseMenu();
     this.buildControllers();
     this.buildAdventureBag();
     this.buildCollisionDebug();
@@ -332,6 +364,7 @@ export class OpenDungeonEngine {
     this.inventoryButtonWasPressed = false;
     if (this.bagMenuOpen) this.placeBagMenu();
     this.updateBagTransform(0);
+    this.drawVrPauseMenu();
   }
 
   reset() {
@@ -378,6 +411,7 @@ export class OpenDungeonEngine {
     }
     this.disposableGeometries.forEach((geometry) => geometry.dispose());
     this.disposableMaterials.forEach((material) => material.dispose());
+    this.vrPauseTexture.dispose();
     this.renderer.dispose();
     void this.audioContext?.close();
     this.renderer.domElement.remove();
@@ -394,6 +428,9 @@ export class OpenDungeonEngine {
   private readonly onXrSessionEnd = () => {
     this.xrOriginPending = false;
     this.inventoryButtonWasPressed = false;
+    this.vrPauseButtonWasPressed = false;
+    this.vrMenuSelectGuards.clear();
+    this.closeVrPauseMenu();
     this.resetPlayerTransform();
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.quest ? 1 : 1.5));
     this.resize();
@@ -918,7 +955,8 @@ export class OpenDungeonEngine {
     const delta = clampFrameDelta(rawDelta);
 
     if (!this.paused) {
-      this.update(delta, nowSeconds);
+      if (this.vrPauseMenuOpen) this.updateVrPauseMenu();
+      else this.update(delta, nowSeconds);
       this.animationSeconds += delta;
       const crystal = this.scene.getObjectByName('foundation-crystal');
       if (crystal) {
@@ -958,6 +996,15 @@ export class OpenDungeonEngine {
 
     if (this.renderer.xr.isPresenting) {
       const session = this.renderer.xr.getSession();
+      const leftButtons = Array.from(session?.inputSources ?? [])
+        .find((source) => source.handedness === 'left')?.gamepad?.buttons;
+      const pausePressed = leftButtons ? vrPauseButtonPressed(leftButtons) : false;
+      if (pausePressed && !this.vrPauseButtonWasPressed) {
+        this.openVrPauseMenu();
+        this.vrPauseButtonWasPressed = true;
+        return;
+      }
+      this.vrPauseButtonWasPressed = pausePressed;
       let inventoryButtonPressed = false;
       for (const source of session?.inputSources ?? []) {
         if (!source.gamepad) continue;
@@ -986,6 +1033,7 @@ export class OpenDungeonEngine {
 
     } else {
       this.inventoryButtonWasPressed = false;
+      this.vrPauseButtonWasPressed = false;
       const gamepad = Array.from(navigator.getGamepads?.() ?? []).find((candidate) => candidate?.connected);
       if (gamepad) {
         right += applyDeadzone(gamepad.axes[0] ?? 0);
@@ -1297,6 +1345,159 @@ export class OpenDungeonEngine {
     return true;
   }
 
+  private openVrPauseMenu() {
+    if (!this.renderer.xr.isPresenting) return;
+    this.vrPauseMenuOpen = true;
+    this.vrPauseMenuIndex = 0;
+    this.vrPauseAxisReady = false;
+    this.vrPauseAdjustReady = false;
+    this.bagMenuOpen = false;
+    this.bagOpenAmount = 0;
+    this.adventureBag.visible = false;
+    this.bagMenu.visible = false;
+    this.bagSlots.forEach((slot) => { slot.visible = false; });
+    this.items.forEach((item) => {
+      if (item.state.storedSlot !== null) item.object.visible = false;
+    });
+    this.placeVrPauseMenu();
+    this.drawVrPauseMenu();
+    this.vrPausePanel.visible = true;
+    this.playTone(420, 0.08, 0.045);
+    this.pulseController('left', 0.24, 45);
+    this.emitInteraction('Menu de pausa VR aberto. Use o analógico esquerdo e o gatilho.');
+  }
+
+  private closeVrPauseMenu() {
+    if (!this.vrPauseMenuOpen && !this.vrPausePanel?.visible) return;
+    this.vrPauseMenuOpen = false;
+    if (this.vrPausePanel) this.vrPausePanel.visible = false;
+    this.playTone(310, 0.07, 0.04);
+    this.emitInteraction('Menu de pausa VR fechado.');
+  }
+
+  private placeVrPauseMenu() {
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
+    forward.y = 0;
+    if (forward.lengthSq() < 0.001) forward.set(0, 0, -1);
+    forward.normalize();
+    this.vrPausePanel.position.set(
+      this.camera.position.x + forward.x * 1.18,
+      THREE.MathUtils.clamp(this.camera.position.y - 0.04, 1.04, 1.7),
+      this.camera.position.z + forward.z * 1.18,
+    );
+    this.vrPausePanel.rotation.set(0, Math.atan2(-forward.x, -forward.z), 0);
+  }
+
+  private updateVrPauseMenu() {
+    const session = this.renderer.xr.getSession();
+    if (!session) return;
+    const left = Array.from(session.inputSources)
+      .find((source) => source.handedness === 'left')?.gamepad;
+    const pausePressed = left ? vrPauseButtonPressed(left.buttons) : false;
+    if (!pausePressed) this.vrPauseButtonWasPressed = false;
+    if (pausePressed && !this.vrPauseButtonWasPressed) {
+      this.vrPauseButtonWasPressed = true;
+      this.closeVrPauseMenu();
+      return;
+    }
+    const [axisX, axisY] = this.readStick(left?.axes ?? []);
+    if (Math.abs(axisY) < 0.3) this.vrPauseAxisReady = true;
+    if (Math.abs(axisY) > 0.65 && this.vrPauseAxisReady) {
+      this.vrPauseMenuIndex = moveVrMenuSelection(
+        this.vrPauseMenuIndex,
+        axisY > 0 ? 1 : -1,
+        VR_PAUSE_MENU_ITEM_COUNT,
+      );
+      this.vrPauseAxisReady = false;
+      this.drawVrPauseMenu();
+      this.pulseController('left', 0.1, 24);
+    }
+    if (Math.abs(axisX) < 0.3) this.vrPauseAdjustReady = true;
+    if (Math.abs(axisX) > 0.65 && this.vrPauseAdjustReady) {
+      this.vrPauseAdjustReady = false;
+      this.adjustVrPauseMenu(axisX > 0 ? 1 : -1);
+    }
+  }
+
+  private adjustVrPauseMenu(direction: -1 | 1) {
+    const next = { ...this.comfort };
+    if (this.vrPauseMenuIndex === 1) next.posture = next.posture === 'standing' ? 'seated' : 'standing';
+    else if (this.vrPauseMenuIndex === 2) next.dominantHand = next.dominantHand === 'left' ? 'right' : 'left';
+    else if (this.vrPauseMenuIndex === 3) next.oneHandMode = !next.oneHandMode;
+    else if (this.vrPauseMenuIndex === 4) next.waistOffset += direction * 0.02;
+    else if (this.vrPauseMenuIndex === 5) next.menuDistance += direction * 0.02;
+    else return;
+    this.setComfortSettings(next);
+    this.options.onComfortChange?.({ ...this.comfort });
+    this.playTone(560, 0.055, 0.035);
+    this.pulseController('left', 0.12, 28);
+  }
+
+  private activateVrPauseMenuItem() {
+    if (this.vrPauseMenuIndex === 0) {
+      this.closeVrPauseMenu();
+      return;
+    }
+    if (this.vrPauseMenuIndex >= 1 && this.vrPauseMenuIndex <= 5) {
+      this.adjustVrPauseMenu(1);
+      return;
+    }
+    if (this.vrPauseMenuIndex === 6) {
+      this.reset();
+      this.closeVrPauseMenu();
+      return;
+    }
+    void this.exitVr();
+  }
+
+  private drawVrPauseMenu() {
+    const context = this.vrPauseCanvas.getContext('2d');
+    if (!context) return;
+    const choices = [
+      'Continuar expedição',
+      `Postura · ${this.comfort.posture === 'standing' ? 'Em pé' : 'Sentado'}`,
+      `Mão dominante · ${this.comfort.dominantHand === 'left' ? 'Esquerda / X' : 'Direita / A'}`,
+      `Controles · ${this.comfort.oneHandMode ? 'Uma mão' : 'Duas mãos'}`,
+      `Altura da cintura · ${Math.round(this.comfort.waistOffset * 100)} cm`,
+      `Distância do menu · ${Math.round(this.comfort.menuDistance * 100)} cm`,
+      'Reiniciar sala',
+      'Sair do VR',
+    ];
+    context.clearRect(0, 0, 1024, 720);
+    context.fillStyle = 'rgba(4, 13, 14, 0.96)';
+    context.fillRect(16, 16, 992, 688);
+    context.strokeStyle = '#51e6b8';
+    context.lineWidth = 4;
+    context.strokeRect(16, 16, 992, 688);
+    context.fillStyle = '#51e6b8';
+    context.font = '700 22px monospace';
+    context.fillText('OPEN DUNGEON VR · CONFORTO', 58, 64);
+    context.fillStyle = '#f1eee5';
+    context.font = '700 50px Georgia';
+    context.fillText('Expedição pausada', 58, 125);
+    context.fillStyle = '#8fa29c';
+    context.font = '22px sans-serif';
+    context.fillText('Analógico navega e ajusta · gatilho confirma', 58, 162);
+    choices.forEach((choice, index) => {
+      const y = 190 + index * 57;
+      const selected = index === this.vrPauseMenuIndex;
+      context.fillStyle = selected ? 'rgba(81, 230, 184, 0.2)' : 'rgba(19, 38, 37, 0.76)';
+      context.fillRect(58, y, 908, 45);
+      context.fillStyle = selected ? '#51e6b8' : '#344d49';
+      context.fillRect(58, y, selected ? 8 : 3, 45);
+      context.strokeStyle = selected ? '#51e6b8' : 'rgba(81, 230, 184, 0.16)';
+      context.lineWidth = selected ? 3 : 1;
+      context.strokeRect(58, y, 908, 45);
+      context.fillStyle = selected ? '#ffffff' : '#a4b3ae';
+      context.font = `${selected ? '700' : '600'} 22px sans-serif`;
+      context.fillText(`${selected ? '›' : ' '} ${choice}`, 82, y + 30);
+    });
+    context.fillStyle = '#d3ad6e';
+    context.font = '700 17px monospace';
+    context.fillText('MENU / CLIQUE NO ANALÓGICO: FECHAR', 58, 682);
+    this.vrPauseTexture.needsUpdate = true;
+  }
+
   private consumePotion(item: ItemRuntime, holder: Holder) {
     if (this.potionConsumed || item.id !== 'potion') return;
     item.state = { ...item.state, holder: null, storedSlot: null };
@@ -1452,6 +1653,7 @@ export class OpenDungeonEngine {
   }
 
   private finishControllerGrab(holder: 'left' | 'right') {
+    if (this.vrMenuSelectGuards.delete(holder) || this.vrPauseMenuOpen) return;
     const item = this.itemForHolder(holder);
     if (!item) return;
     if (item.id === 'key' && this.controllerNearLock(holder)) {
@@ -1569,6 +1771,12 @@ export class OpenDungeonEngine {
   }
 
   private tryControllerGrab(holder: 'left' | 'right') {
+    if (this.vrPauseMenuOpen) {
+      this.vrMenuSelectGuards.add(holder);
+      this.activateVrPauseMenuItem();
+      this.pulseController(holder, 0.18, 34);
+      return;
+    }
     if (this.comfort.oneHandMode && holder !== this.comfort.dominantHand) return;
     if (this.isControllerNearWaist(holder)) {
       this.toggleBagMenu(holder);

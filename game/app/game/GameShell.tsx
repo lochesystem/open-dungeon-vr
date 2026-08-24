@@ -81,6 +81,7 @@ export function GameShell() {
       onStats: setFps,
       onXrChange: setXrActive,
       onInteraction: setInteraction,
+      onComfortChange: setComfort,
     });
     engineRef.current = engine;
 
@@ -201,7 +202,7 @@ export function GameShell() {
             <span><kbd>ESC</kbd> pausar</span>
           </aside>
           <aside className="objective-card" aria-label="Objetivo da sala">
-            <span>OBJETIVO D2.4 · VIDA {interaction.health}/{interaction.maximumHealth}</span>
+            <span>OBJETIVO D2.5 · VIDA {interaction.health}/{interaction.maximumHealth}</span>
             <strong>{interaction.potionConsumed ? 'VIDA RESTAURADA' : interaction.health < interaction.maximumHealth ? 'BEBA A POÇÃO' : 'ATRAVESSE A RUNA'}</strong>
             <small>{interaction.potionConsumed ? 'Frasco consumido e slot liberado' : interaction.health < interaction.maximumHealth ? 'Leve à boca e incline' : interaction.storedItemCount > 0 ? `${interaction.storedItemCount} de 6 slots ocupados` : 'A armadilha é não letal'}</small>
           </aside>
@@ -223,7 +224,7 @@ export function GameShell() {
         </section>
       )}
 
-      <footer className="build-label">BUILD D2.4 · LOCAL · {xrActive ? 'XR ATIVO' : 'DESKTOP'}</footer>
+      <footer className="build-label">BUILD D2.5 · LOCAL · {xrActive ? 'XR ATIVO' : 'DESKTOP'}</footer>
     </main>
   );
 }
