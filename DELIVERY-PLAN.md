@@ -328,7 +328,7 @@ A D4.2 fechou o primeiro ciclo ofensivo e abriu caminho para tornar o Guardião 
 
 ### D4.4 — Visual FULL IA
 
-- [ ] Concept aprovado do Guardião Ossário.
+- [x] Concept aprovado do Guardião Ossário.
 - [x] Candidato v1 e turnaround técnico gerados, versionados e aguardando aprovação.
 - [ ] Modelo 3D gerado por IA.
 - [ ] Texturas próprias.

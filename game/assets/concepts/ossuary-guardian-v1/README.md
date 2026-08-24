@@ -1,6 +1,6 @@
 # Guardião Ossário — concept v1
 
-- **Status:** candidato aguardando aprovação visual
+- **Status:** aprovado e bloqueado como referência visual da D4.4
 - **Origem:** geração original por IA com a ferramenta integrada de geração de imagens
 - **Referência funcional:** blockout D4.3 capturado no runtime
 - **Licença do projeto:** original do projeto
@@ -25,4 +25,4 @@ Fantasia sombria estilizada com osso marfim envelhecido, bronze verde-escuro oxi
 
 ## Próximo gate
 
-O concept só passa para geração de malha após aprovação explícita. Depois da aprovação, estas imagens tornam-se referências bloqueadas para o script de modelagem, materiais e QA.
+Concept aprovado em 24 de agosto de 2026. Estas imagens são referências bloqueadas para o script de modelagem, materiais e QA; alterações de identidade visual exigem uma nova versão do concept.

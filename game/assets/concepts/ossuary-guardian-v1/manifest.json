@@ -9,5 +9,7 @@
   "targetRig": "humanoid_large_v1",
   "targetLods": 2,
   "gameplayReference": "D4.3 procedural blockout",
-  "approved": false
+  "approved": true,
+  "approvedAt": "2026-08-24",
+  "approval": "Aprovado pelo diretor do projeto na conversa de desenvolvimento"
 }
