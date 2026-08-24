@@ -825,7 +825,7 @@ export class OpenDungeonEngine {
     shieldBoss.position.z = 0.048;
     const shieldRune = new THREE.Mesh(this.geometry(new THREE.RingGeometry(0.2, 0.235, 28)), rune);
     shieldRune.position.z = 0.086;
-    const shieldHandle = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.2, 0.055, 0.055)), swordGripMaterial);
+    const shieldHandle = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.055, 0.2, 0.055)), swordGripMaterial);
     shieldHandle.position.z = -0.085;
     shield.add(shieldBody, shieldRim, shieldBoss, shieldRune, shieldHandle);
     shield.position.copy(SHIELD_HOME);

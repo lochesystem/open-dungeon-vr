@@ -4,7 +4,7 @@ export const SHIELD_HANDLE_ANCHOR = new THREE.Vector3(0, 0, -0.085);
 export const SHIELD_CONTROLLER_OFFSET = new THREE.Vector3(0, 0, -0.035);
 
 const SHIELD_FORWARD_ALIGNMENT = new THREE.Quaternion().setFromEuler(
-  new THREE.Euler(0, Math.PI, 0),
+  new THREE.Euler(-Math.PI / 2, 0, 0),
 );
 
 export function heldShieldRotation(holderWorldRotation: THREE.Quaternion): THREE.Quaternion {

@@ -17,6 +17,19 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D3 — Laboratório de combate estático.
 
+## [0.10.3] — 2026-08-24
+
+### Corrigido
+
+- Espada adquirida pelo punho gira 90° em torno do próprio comprimento: permanece ereta e passa a apontar o fio para a frente, não para o lado.
+- Escudo deixa de ficar perpendicular à mão e passa a apoiar o disco sobre as costas dela.
+- Alça traseira do escudo acompanha o eixo punho–dedos, coerente com a empunhadura de um escudo central.
+
+### Validado
+
+- Testes independentes verificam simultaneamente comprimento vertical, fio frontal, normal do escudo e coincidência entre mão e alça.
+- Suíte ampliada para 58 testes.
+
 ## [0.10.2] — 2026-08-24
 
 ### Alterado

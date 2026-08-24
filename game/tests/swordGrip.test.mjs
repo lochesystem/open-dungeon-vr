@@ -31,9 +31,17 @@ test('assisted sword pickup places the blade upright from the handle', () => {
   assert.ok(bladeDirection.distanceTo(controllerUp) < 1e-7);
 });
 
+test('assisted sword pickup points the cutting edge forward instead of sideways', () => {
+  const controllerRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.2, 0.35, 0.1));
+  const swordRotation = uprightSwordRotation(controllerRotation);
+  const cuttingEdge = new THREE.Vector3(1, 0, 0).applyQuaternion(swordRotation);
+  const controllerForward = new THREE.Vector3(0, 0, -1).applyQuaternion(controllerRotation);
+  assert.ok(cuttingEdge.distanceTo(controllerForward) < 1e-7);
+});
+
 test('upright acquisition offset is deterministic and safe to mutate by the caller', () => {
   const first = uprightSwordGripOffset();
   first.set(0, 0, 0, 1);
   const second = uprightSwordGripOffset();
-  assert.ok(second.angleTo(new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, 0, 0))) < 1e-7);
+  assert.ok(second.angleTo(uprightSwordRotation(new THREE.Quaternion())) < 1e-7);
 });

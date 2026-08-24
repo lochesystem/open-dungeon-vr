@@ -240,6 +240,14 @@ O jogador abre a bolsa, guarda uma poção, uma chave e o cubo rúnico, fecha, c
 - [x] Segunda mão e transferência de autoridade continuam disponíveis após o encaixe.
 - [ ] Homologar a pose vertical inicial nas duas mãos no Meta Quest.
 
+### D3.3.3 — Correção dos eixos de empunhadura
+
+- [x] Espada mantém o comprimento ereto e gira o fio 90° para a frente.
+- [x] Escudo fica paralelo às costas da mão em vez de perpendicular ao punho.
+- [x] Alça do escudo segue o eixo punho–dedos.
+- [x] Pegada livre direta e manipulação bimanual da espada permanecem inalteradas.
+- [ ] Homologar os dois eixos corrigidos no Meta Quest.
+
 ### Experiência
 
 O jogador retira espada e escudo, ataca um boneco, bloqueia um golpe mecânico, executa um parry e quebra o alvo. Um painel mostra somente feedback útil e oferece repetição.

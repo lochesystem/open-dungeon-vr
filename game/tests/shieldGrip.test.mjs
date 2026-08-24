@@ -12,12 +12,12 @@ const closeVector = (actual, expected) => {
   assert.ok(actual.distanceTo(expected) < 1e-7, `${actual.toArray()} != ${expected.toArray()}`);
 };
 
-test('shield decorated face always points along the controller forward axis', () => {
+test('shield decorated face rests along the back-of-hand axis', () => {
   const controllerRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.3, -0.7, 0.2));
   const shieldRotation = heldShieldRotation(controllerRotation);
   const decoratedFace = new THREE.Vector3(0, 0, 1).applyQuaternion(shieldRotation);
-  const controllerForward = new THREE.Vector3(0, 0, -1).applyQuaternion(controllerRotation);
-  closeVector(decoratedFace, controllerForward);
+  const backOfHand = new THREE.Vector3(0, 1, 0).applyQuaternion(controllerRotation);
+  closeVector(decoratedFace, backOfHand);
 });
 
 test('fixed shield grip places its physical handle at the controller grip point', () => {
