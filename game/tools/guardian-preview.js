@@ -4,7 +4,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 const scene = new THREE.Scene();
 const turntableEnabled = new URLSearchParams(location.search).has('turntable');
-const clock = new THREE.Clock();
+let previousFrameTime = performance.now();
 scene.background = new THREE.Color(0x101515);
 scene.fog = new THREE.Fog(0x101515, 7, 14);
 
@@ -73,7 +73,9 @@ addEventListener('resize', () => {
 });
 
 renderer.setAnimationLoop(() => {
-  const delta = Math.min(clock.getDelta(), 0.05);
+  const currentFrameTime = performance.now();
+  const delta = Math.min((currentFrameTime - previousFrameTime) / 1_000, 0.05);
+  previousFrameTime = currentFrameTime;
   if (candidate && turntableEnabled) candidate.rotation.y += delta * 0.54;
   controls.update();
   renderer.render(scene, camera);
