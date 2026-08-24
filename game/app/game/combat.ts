@@ -45,6 +45,6 @@ export function sweptSphereHit(
   return Math.hypot(closest.x - target.x, closest.y - target.y, closest.z - target.z) <= radius;
 }
 
-export function applyCombatDamage(health: number, damage = 1): number {
-  return Math.max(0, health - Math.max(0, damage));
+export function registerTrainingHit(hitCount: number): number {
+  return Math.max(0, Math.floor(hitCount)) + 1;
 }

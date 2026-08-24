@@ -17,6 +17,25 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D3 — Laboratório de combate estático.
 
+## [0.9.0] — 2026-08-24
+
+### Alterado
+
+- Boneco de treinamento agora é imortal, reage indefinidamente e contabiliza todos os golpes válidos.
+- Espada deixou de ser forçada para a frente do controle e preserva o ângulo relativo capturado pela mão.
+
+### Adicionado
+
+- Pegada livre em qualquer ponto entre o pomo e a ponta da espada.
+- Segunda mão pode segurar outro ponto da arma e orientar a lâmina por alavanca espacial.
+- Soltar a mão principal promove automaticamente a segunda mão, sem queda ou salto de autoridade.
+- Soltar apenas a mão secundária retorna suavemente à manipulação de uma mão.
+
+### Validado
+
+- Testes cobrem âncora ao longo de toda a espada, separação útil da segunda mão e contagem ilimitada de golpes.
+- Suíte ampliada para 47 testes.
+
 ## [0.8.0] — 2026-08-24
 
 ### Adicionado

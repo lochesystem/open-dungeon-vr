@@ -72,9 +72,7 @@ export function GameShell() {
     health: 3,
     maximumHealth: 3,
     potionConsumed: false,
-    dummyHealth: 3,
-    dummyMaximumHealth: 3,
-    dummyDefeated: false,
+    dummyHits: 0,
     status: 'Encontre a espada e derrote o boneco de treinamento.',
   });
 
@@ -207,9 +205,9 @@ export function GameShell() {
             <span><kbd>ESC</kbd> pausar</span>
           </aside>
           <aside className="objective-card" aria-label="Objetivo da sala">
-            <span>OBJETIVO D3.1 · ALVO {interaction.dummyHealth}/{interaction.dummyMaximumHealth}</span>
-            <strong>{interaction.dummyDefeated ? 'TREINO CONCLUÍDO' : 'ENCONTRE A ESPADA'}</strong>
-            <small>{interaction.dummyDefeated ? 'Boneco neutralizado' : 'Golpes rápidos e deliberados causam dano'}</small>
+            <span>OBJETIVO D3.2 · GOLPES {interaction.dummyHits}</span>
+            <strong>BONECO IMORTAL</strong>
+            <small>Pegue em qualquer ponto · uma ou duas mãos</small>
           </aside>
           <p className="play-notice" role="status">{interaction.status || notice}</p>
         </>
@@ -229,7 +227,7 @@ export function GameShell() {
         </section>
       )}
 
-      <footer className="build-label">BUILD D3.1 · LOCAL · {xrActive ? 'XR ATIVO' : 'DESKTOP'}</footer>
+      <footer className="build-label">BUILD D3.2 · LOCAL · {xrActive ? 'XR ATIVO' : 'DESKTOP'}</footer>
     </main>
   );
 }

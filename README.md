@@ -11,7 +11,7 @@ Documentos do projeto:
 
 ## Estado
 
-- D0, D1 e D2 concluídas; D3.1 inicia o laboratório de combate com espada e boneco funcional
+- D0, D1 e D2 concluídas; D3.2 oferece espada com pegada livre, uma ou duas mãos, e boneco imortal
 - Portal discreto na cintura: solte um item sobre o anel para guardar automaticamente; `X` esquerdo ou `A` direito abre o menu conforme a mão dominante
 - Nome de trabalho: **Open Dungeon VR**
 - Produção: **FULL IA**, com aprovação visual e de produto pelo usuário
@@ -42,7 +42,7 @@ Para pegar sem se agachar, aponte a mão para o item a até 3,5 m e pressione o 
 Retire a chave do inventário e solte-a junto à fechadura do portal para abrir fisicamente a passagem.
 Após sofrer dano na runa, leve a poção à boca, incline o frasco e mantenha a pose brevemente para recuperar vida e liberar o slot.
 Se um item sair dos limites da sala, ele retorna ao último slot válido; se isso não for possível, usa outro slot livre ou volta ao pedestal.
-Para o treino D3.1, puxe a espada da lateral esquerda e atravesse o volume do boneco com um golpe rápido e deliberado. São necessários três golpes válidos. No desktop, segure a espada, aproxime-se e pressione `J`.
+Para o treino D3.2, puxe a espada da lateral esquerda e atravesse o volume do boneco com golpes rápidos e deliberados. O boneco é imortal e contabiliza os acertos indefinidamente. Pegue diretamente qualquer trecho da espada para escolher o ponto e o ângulo; mantenha o gatilho da outra mão sobre um segundo trecho para manipulação bimanual. No desktop, segure a espada, aproxime-se e pressione `J`.
 
 ## Meta Quest pelo GitHub Pages
 

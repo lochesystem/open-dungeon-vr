@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  applyCombatDamage,
   isDeliberateSwing,
+  registerTrainingHit,
   sweptSphereHit,
 } from '../app/game/combat.ts';
 
@@ -26,7 +26,7 @@ test('swept hit rejects a fast swing that misses the target volume', () => {
   ), false);
 });
 
-test('combat damage clamps at zero health', () => {
-  assert.equal(applyCombatDamage(3), 2);
-  assert.equal(applyCombatDamage(0), 0);
+test('an immortal training dummy counts every valid hit', () => {
+  assert.equal(registerTrainingHit(0), 1);
+  assert.equal(registerTrainingHit(99), 100);
 });

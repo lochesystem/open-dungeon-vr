@@ -9,7 +9,7 @@ import {
 } from './collision';
 import { applyDeadzone, clampFrameDelta, movementVelocity, rigPositionForTrackedSpawn } from './motion';
 import { captureGripRotationOffset, heldObjectRotation } from './grip';
-import { applyCombatDamage, isDeliberateSwing, sweptSphereHit } from './combat';
+import { isDeliberateSwing, registerTrainingHit, sweptSphereHit } from './combat';
 import { INVENTORY_PREVIEW_SCALE, inventoryPreviewYaw } from './inventoryPreview';
 import { canInsertMissionKey, doorBlocksPassage } from './missionDoor';
 import { POTION_WORLD_SCALE, applyNonLethalHazard, healPlayer, shouldDrinkPotion } from './potion';
@@ -32,6 +32,7 @@ import {
 } from './objectInteraction';
 import { META_QUEST_PRIMARY_FACE_BUTTON, buttonPressedOnRisingEdge } from './vrInput';
 import { moveVrMenuSelection, vrPauseButtonPressed } from './vrPauseMenu';
+import { secondarySwordGripAnchor, swordGripAnchor } from './swordGrip';
 import { createVrSessionInit } from './xrSession';
 
 export type InteractionSnapshot = {
@@ -45,9 +46,7 @@ export type InteractionSnapshot = {
   health: number;
   maximumHealth: number;
   potionConsumed: boolean;
-  dummyHealth: number;
-  dummyMaximumHealth: number;
-  dummyDefeated: boolean;
+  dummyHits: number;
   status: string;
 };
 
@@ -97,7 +96,6 @@ const LOCK_POSITION = new THREE.Vector3(1.45, 1.18, -7.05);
 const TARGET_POSITION = new THREE.Vector3(3, 2, -4.8);
 const TARGET_RADIUS = 0.72;
 const DUMMY_POSITION = new THREE.Vector3(-3.05, 1.15, -2.8);
-const DUMMY_MAX_HEALTH = 3;
 const VR_PAUSE_MENU_ITEM_COUNT = 8;
 
 const PILLAR_COLLIDERS: BoxCollider[] = [-9.6, -6.4, 6.4, 9.6].flatMap((x) =>
@@ -215,6 +213,7 @@ type ItemRuntime = {
   previousPosition: THREE.Vector3;
   sleeping: boolean;
   lastStoredSlot: number | null;
+  secondaryHolder: 'left' | 'right' | null;
 };
 
 export class OpenDungeonEngine {
@@ -266,12 +265,13 @@ export class OpenDungeonEngine {
   private doorOpenAmount = 0;
   private health = MAX_HEALTH;
   private potionConsumed = false;
-  private dummyHealth = DUMMY_MAX_HEALTH;
+  private dummyHits = 0;
   private dummyHitCooldown = 0;
   private dummyHitPulse = 0;
   private readonly swordTip = new THREE.Vector3();
   private readonly previousSwordTip = new THREE.Vector3();
   private swordTipReady = false;
+  private readonly swordGripAnchors = new Map<Holder, THREE.Vector3>();
   private drinkProgress = 0;
   private hazardOccupied = false;
   private hazardPulseSeconds = 0;
@@ -525,6 +525,7 @@ export class OpenDungeonEngine {
       previousPosition: new THREE.Vector3(),
       sleeping: true,
       lastStoredSlot: null,
+      secondaryHolder: null,
     };
   }
 
@@ -1409,12 +1410,15 @@ export class OpenDungeonEngine {
     item.object.scale.setScalar(item.worldScale);
     if (item.state.holder) {
       const holder = item.state.holder;
-      const heldPosition = this.heldObjectPosition(holder, item);
       const holderRotation = this.holderWorldRotation(holder);
       const gripOffset = this.gripRotationOffsets.get(holder);
-      const targetRotation = holderRotation && gripOffset
+      let targetRotation = holderRotation && gripOffset
         ? heldObjectRotation(holderRotation, gripOffset)
         : item.object.quaternion.clone();
+      if (item.id === 'sword' && item.secondaryHolder) {
+        targetRotation = this.twoHandedSwordRotation(item, targetRotation);
+      }
+      const heldPosition = this.heldObjectPosition(holder, item, targetRotation);
       if (this.pullAnimation?.itemId === item.id && this.pullAnimation.holder === holder) {
         this.pullAnimation.elapsed += delta;
         const progress = remotePullProgress(this.pullAnimation.elapsed, this.pullAnimation.duration);
@@ -1471,14 +1475,13 @@ export class OpenDungeonEngine {
   private updateTrainingCombat(delta: number) {
     this.dummyHitCooldown = Math.max(0, this.dummyHitCooldown - delta);
     this.dummyHitPulse = Math.max(0, this.dummyHitPulse - delta);
-    const defeated = this.dummyHealth <= 0;
-    const targetRotation = defeated ? -1.22 : this.dummyHitPulse > 0 ? -0.12 : 0;
+    const targetRotation = this.dummyHitPulse > 0 ? -0.12 : 0;
     this.trainingDummy.rotation.z += (targetRotation - this.trainingDummy.rotation.z) * (1 - Math.exp(-10 * delta));
-    this.dummyMaterial.emissive.setHex(this.dummyHitPulse > 0 ? 0xb53122 : defeated ? 0x240906 : 0x1a0c06);
-    this.dummyMaterial.emissiveIntensity = this.dummyHitPulse > 0 ? 2.8 : defeated ? 0.8 : 0.25;
+    this.dummyMaterial.emissive.setHex(this.dummyHitPulse > 0 ? 0xb53122 : 0x1a0c06);
+    this.dummyMaterial.emissiveIntensity = this.dummyHitPulse > 0 ? 2.8 : 0.25;
 
     const sword = this.items.get('sword')!;
-    if (!this.renderer.xr.isPresenting || !sword.state.holder || this.pullAnimation?.itemId === 'sword' || defeated) {
+    if (!this.renderer.xr.isPresenting || !sword.state.holder || this.pullAnimation?.itemId === 'sword') {
       this.swordTipReady = false;
       return;
     }
@@ -1503,15 +1506,17 @@ export class OpenDungeonEngine {
   }
 
   private registerDummyHit(holder: Holder) {
-    if (this.dummyHealth <= 0 || this.dummyHitCooldown > 0) return;
-    this.dummyHealth = applyCombatDamage(this.dummyHealth);
+    if (this.dummyHitCooldown > 0) return;
+    this.dummyHits = registerTrainingHit(this.dummyHits);
     this.dummyHitCooldown = 0.32;
     this.dummyHitPulse = 0.24;
-    this.playTone(this.dummyHealth === 0 ? 165 : 240 + this.dummyHealth * 55, 0.11, 0.065);
-    this.pulseController(holder, this.dummyHealth === 0 ? 0.62 : 0.42, this.dummyHealth === 0 ? 105 : 68);
-    this.emitInteraction(this.dummyHealth === 0
-      ? 'Boneco derrotado · laboratório de combate concluído.'
-      : `Golpe válido · boneco ${this.dummyHealth}/${DUMMY_MAX_HEALTH}.`);
+    this.playTone(280 + (this.dummyHits % 4) * 55, 0.11, 0.065);
+    this.pulseController(holder, 0.42, 68);
+    if (holder !== 'desktop') {
+      const sword = this.items.get('sword');
+      if (sword?.secondaryHolder) this.pulseController(sword.secondaryHolder, 0.24, 48);
+    }
+    this.emitInteraction(`Golpe válido ${this.dummyHits} · o boneco de treino é imortal.`);
   }
 
   private desktopSwordStrike() {
@@ -1865,7 +1870,8 @@ export class OpenDungeonEngine {
   }
 
   private itemForHolder(holder: Holder) {
-    return Array.from(this.items.values()).find((item) => item.state.holder === holder) ?? null;
+    return Array.from(this.items.values())
+      .find((item) => item.state.holder === holder || item.secondaryHolder === holder) ?? null;
   }
 
   private itemInSlot(slot: number) {
@@ -1909,6 +1915,18 @@ export class OpenDungeonEngine {
     if (this.vrMenuSelectGuards.delete(holder) || this.vrPauseMenuOpen) return;
     const item = this.itemForHolder(holder);
     if (!item) return;
+    if (item.id === 'sword' && item.secondaryHolder === holder) {
+      item.secondaryHolder = null;
+      this.swordGripAnchors.delete(holder);
+      this.poseHistory.set(holder, []);
+      this.pulseController(holder, 0.12, 28);
+      this.emitInteraction('Segunda mão solta · a espada continua livre na mão principal.');
+      return;
+    }
+    if (item.id === 'sword' && item.state.holder === holder && item.secondaryHolder) {
+      this.promoteSecondarySwordGrip(item, holder);
+      return;
+    }
     if (item.id === 'key' && this.controllerNearLock(holder)) {
       this.insertKeyInLock(item, holder);
       return;
@@ -1940,11 +1958,13 @@ export class OpenDungeonEngine {
     const stored = storeObject(item.state, holder, slot, BAG_SLOT_COUNT);
     if (stored === item.state) return;
     item.state = stored;
+    item.secondaryHolder = null;
     item.lastStoredSlot = slot;
     item.sleeping = true;
     item.velocity.set(0, 0, 0);
     this.poseHistory.set(holder, []);
     this.gripRotationOffsets.delete(holder);
+    if (item.id === 'sword') this.swordGripAnchors.clear();
     if (this.pullAnimation?.holder === holder && this.pullAnimation.itemId === item.id) this.pullAnimation = null;
     this.desktopBagOpenSeconds = 1.3;
     this.playTone(440, 0.08, 0.055);
@@ -1958,8 +1978,9 @@ export class OpenDungeonEngine {
     if (!item || this.itemForHolder(holder)) return;
     const retrieved = retrieveObject(item.state, holder, slot);
     if (retrieved === item.state) return;
-    this.captureGripRotation(holder, item);
+    this.captureGripRotation(holder, item, true);
     item.state = retrieved;
+    item.secondaryHolder = null;
     item.object.visible = true;
     item.object.scale.setScalar(item.worldScale);
     item.sleeping = false;
@@ -1991,19 +2012,95 @@ export class OpenDungeonEngine {
     this.toggleBagMenu();
   }
 
-  private heldObjectPosition(holder: Holder, item = this.cube) {
+  private heldObjectPosition(holder: Holder, item = this.cube, objectRotation?: THREE.Quaternion) {
+    let gripPosition: THREE.Vector3;
     if (holder === 'desktop') {
       this.camera.getWorldPosition(this.worldPosition);
       this.camera.getWorldQuaternion(this.worldQuaternion);
-      return new THREE.Vector3(0, -0.18, -0.82)
+      gripPosition = new THREE.Vector3(0, -0.18, -0.82)
+        .applyQuaternion(this.worldQuaternion)
+        .add(this.worldPosition);
+    } else {
+      const controller = this.controllers.get(holder);
+      if (!controller) return item.object.position.clone();
+      controller.getWorldPosition(this.worldPosition);
+      controller.getWorldQuaternion(this.worldQuaternion);
+      gripPosition = new THREE.Vector3(0, 0, item.id === 'sword' ? -0.045 : -0.1)
         .applyQuaternion(this.worldQuaternion)
         .add(this.worldPosition);
     }
+    if (item.id !== 'sword' || !objectRotation) return gripPosition;
+    const anchor = this.swordGripAnchors.get(holder) ?? new THREE.Vector3(0, 0, 0.02);
+    return gripPosition.sub(anchor.clone().applyQuaternion(objectRotation));
+  }
+
+  private swordAnchorForController(holder: 'left' | 'right', item: ItemRuntime) {
     const controller = this.controllers.get(holder);
-    if (!controller) return item.object.position.clone();
-    controller.getWorldPosition(this.worldPosition);
-    controller.getWorldQuaternion(this.worldQuaternion);
-    return new THREE.Vector3(0, 0, -0.1).applyQuaternion(this.worldQuaternion).add(this.worldPosition);
+    if (!controller) return new THREE.Vector3(0, 0, 0.02);
+    controller.getWorldPosition(this.handPosition);
+    const localPoint = item.object.worldToLocal(this.handPosition.clone());
+    const anchor = swordGripAnchor(localPoint);
+    return new THREE.Vector3(anchor.x, anchor.y, anchor.z);
+  }
+
+  private tryAttachSecondarySwordGrip(holder: 'left' | 'right') {
+    const sword = this.items.get('sword');
+    const primary = sword?.state.holder;
+    if (!sword || (primary !== 'left' && primary !== 'right') || primary === holder || sword.secondaryHolder) return false;
+    this.scene.updateMatrixWorld(true);
+    const candidate = this.swordAnchorForController(holder, sword);
+    const anchorWorld = sword.object.localToWorld(candidate.clone());
+    const controller = this.controllers.get(holder);
+    if (!controller) return false;
+    controller.getWorldPosition(this.handPosition);
+    if (this.handPosition.distanceTo(anchorWorld) > 0.3) return false;
+    const primaryAnchor = this.swordGripAnchors.get(primary) ?? new THREE.Vector3(0, 0, 0.02);
+    const resolved = secondarySwordGripAnchor(primaryAnchor, candidate);
+    sword.secondaryHolder = holder;
+    this.swordGripAnchors.set(holder, new THREE.Vector3(resolved.x, resolved.y, resolved.z));
+    this.poseHistory.set(holder, []);
+    this.playTone(410, 0.065, 0.045);
+    this.pulseControllers(0.2, 38);
+    this.emitInteraction('Pegada de duas mãos ativa · mova as duas mãos para orientar a espada.');
+    return true;
+  }
+
+  private promoteSecondarySwordGrip(item: ItemRuntime, releasedHolder: 'left' | 'right') {
+    const promoted = item.secondaryHolder;
+    if (!promoted) return;
+    item.state = { ...item.state, holder: promoted };
+    item.secondaryHolder = null;
+    this.swordGripAnchors.delete(releasedHolder);
+    this.gripRotationOffsets.delete(releasedHolder);
+    const controllerRotation = this.holderWorldRotation(promoted);
+    if (controllerRotation) {
+      const objectRotation = item.object.getWorldQuaternion(new THREE.Quaternion());
+      this.gripRotationOffsets.set(promoted, captureGripRotationOffset(controllerRotation, objectRotation));
+    }
+    this.poseHistory.set(releasedHolder, []);
+    this.poseHistory.set(promoted, []);
+    this.pulseController(promoted, 0.24, 42);
+    this.emitInteraction(`Handoff concluído · a mão ${promoted} assumiu a espada sem queda.`);
+  }
+
+  private twoHandedSwordRotation(item: ItemRuntime, baseRotation: THREE.Quaternion) {
+    const primary = item.state.holder;
+    const secondary = item.secondaryHolder;
+    if ((primary !== 'left' && primary !== 'right') || !secondary) return baseRotation;
+    const primaryController = this.controllers.get(primary);
+    const secondaryController = this.controllers.get(secondary);
+    const primaryAnchor = this.swordGripAnchors.get(primary);
+    const secondaryAnchor = this.swordGripAnchors.get(secondary);
+    if (!primaryController || !secondaryController || !primaryAnchor || !secondaryAnchor) return baseRotation;
+    primaryController.getWorldPosition(this.worldPosition);
+    secondaryController.getWorldPosition(this.handPosition);
+    const handDirection = this.handPosition.clone().sub(this.worldPosition);
+    const localDirection = secondaryAnchor.clone().sub(primaryAnchor);
+    if (handDirection.lengthSq() < 0.0025 || localDirection.lengthSq() < 0.0025) return baseRotation;
+    handDirection.normalize();
+    const currentDirection = localDirection.normalize().applyQuaternion(baseRotation);
+    const correction = new THREE.Quaternion().setFromUnitVectors(currentDirection, handDirection);
+    return correction.multiply(baseRotation).normalize();
   }
 
   private recordPose(holder: Holder, position: THREE.Vector3, timeSeconds: number) {
@@ -2031,11 +2128,12 @@ export class OpenDungeonEngine {
       return;
     }
     if (this.comfort.oneHandMode && holder !== this.comfort.dominantHand) return;
+    if (this.itemForHolder(holder)) return;
+    if (this.tryAttachSecondarySwordGrip(holder)) return;
     if (this.isControllerNearWaist(holder)) {
       this.toggleBagMenu(holder);
       return;
     }
-    if (this.itemForHolder(holder)) return;
     const nearestSlot = this.nearestBagSlot(holder);
     if (nearestSlot !== null && this.itemInSlot(nearestSlot)) {
       this.retrieveStoredObject(holder, nearestSlot);
@@ -2052,8 +2150,9 @@ export class OpenDungeonEngine {
   private claimHeldObject(holder: Holder, item = this.cube, pullDistance?: number) {
     const pullFromPosition = item.object.position.clone();
     const pullFromRotation = item.object.quaternion.clone();
-    this.captureGripRotation(holder, item);
+    this.captureGripRotation(holder, item, pullDistance !== undefined);
     item.state = claimObject(item.state, holder);
+    item.secondaryHolder = null;
     item.object.visible = true;
     item.object.scale.setScalar(item.worldScale);
     item.sleeping = false;
@@ -2076,13 +2175,15 @@ export class OpenDungeonEngine {
       : `${item.label} na mão ${holder}.`);
   }
 
-  private captureGripRotation(holder: Holder, item = this.cube) {
+  private captureGripRotation(holder: Holder, item = this.cube, preferHandle = false) {
     this.scene.updateMatrixWorld(true);
     const holderRotation = this.holderWorldRotation(holder);
     if (holderRotation) {
       if (item.id === 'sword') {
-        this.gripRotationOffsets.set(holder, new THREE.Quaternion());
-        return;
+        const anchor = preferHandle || holder === 'desktop'
+          ? new THREE.Vector3(0, 0, 0.02)
+          : this.swordAnchorForController(holder, item);
+        this.swordGripAnchors.set(holder, anchor);
       }
       const objectRotation = item.object.getWorldQuaternion(new THREE.Quaternion());
       this.gripRotationOffsets.set(holder, captureGripRotationOffset(holderRotation, objectRotation));
@@ -2097,6 +2198,7 @@ export class OpenDungeonEngine {
     const released = releaseObject(item.state, holder);
     if (released === item.state) return;
     item.state = released;
+    item.secondaryHolder = null;
     item.sleeping = false;
 
     if (shouldThrow) {
@@ -2112,6 +2214,7 @@ export class OpenDungeonEngine {
     }
     this.poseHistory.set(holder, []);
     this.gripRotationOffsets.delete(holder);
+    if (item.id === 'sword') this.swordGripAnchors.clear();
     this.playTone(shouldThrow ? 210 : 260, 0.08, 0.045);
     this.pulseController(holder, shouldThrow ? 0.38 : 0.18, shouldThrow ? 65 : 35);
     this.emitInteraction(shouldThrow ? `${item.label} lançado.` : `${item.label} solto.`);
@@ -2169,7 +2272,7 @@ export class OpenDungeonEngine {
     this.potionConsumed = false;
     this.drinkProgress = 0;
     this.health = MAX_HEALTH;
-    this.dummyHealth = DUMMY_MAX_HEALTH;
+    this.dummyHits = 0;
     this.dummyHitCooldown = 0;
     this.dummyHitPulse = 0;
     this.trainingDummy.rotation.set(0, 0, 0);
@@ -2184,12 +2287,14 @@ export class OpenDungeonEngine {
     this.targetCore.scale.setScalar(1);
     this.poseHistory.forEach((history) => history.splice(0));
     this.gripRotationOffsets.clear();
+    this.swordGripAnchors.clear();
     this.pullAnimation = null;
     this.emitInteraction(status);
   }
 
   private resetItem(item: ItemRuntime) {
     item.state = { ...INITIAL_OBJECT_STATE };
+    item.secondaryHolder = null;
     item.lastStoredSlot = null;
     item.sleeping = true;
     item.velocity.set(0, 0, 0);
@@ -2210,6 +2315,8 @@ export class OpenDungeonEngine {
     item.state = slot === null
       ? { ...INITIAL_OBJECT_STATE }
       : { ...INITIAL_OBJECT_STATE, storedSlot: slot };
+    item.secondaryHolder = null;
+    if (item.id === 'sword') this.swordGripAnchors.clear();
     this.poseHistory.forEach((history) => history.splice(0));
     this.gripRotationOffsets.clear();
     if (this.pullAnimation?.itemId === item.id) this.pullAnimation = null;
@@ -2239,9 +2346,7 @@ export class OpenDungeonEngine {
       health: this.health,
       maximumHealth: MAX_HEALTH,
       potionConsumed: this.potionConsumed,
-      dummyHealth: this.dummyHealth,
-      dummyMaximumHealth: DUMMY_MAX_HEALTH,
-      dummyDefeated: this.dummyHealth <= 0,
+      dummyHits: this.dummyHits,
       status,
     };
     const signature = JSON.stringify(snapshot);
@@ -2251,9 +2356,8 @@ export class OpenDungeonEngine {
   }
 
   private contextualStatus(fallback: string) {
-    if (this.dummyHealth <= 0) return 'Boneco derrotado · laboratório D3.1 concluído.';
     const sword = this.items.get('sword');
-    if (sword?.state.holder) return `Espada em mãos · acerte o boneco com um arco deliberado (${this.dummyHealth}/${DUMMY_MAX_HEALTH}).`;
+    if (sword?.state.holder) return `Espada em mãos · ${this.dummyHits} golpe${this.dummyHits === 1 ? '' : 's'} válido${this.dummyHits === 1 ? '' : 's'} no boneco imortal.`;
     if (sword && sword.state.storedSlot !== null) return `Espada guardada no slot ${sword.state.storedSlot + 1} · retire-a para iniciar o treino.`;
     if (sword && !sword.state.holder) return 'Encontre a espada no suporte à esquerda e puxe-a para sua mão.';
     if (this.keyInserted) return 'Passagem desbloqueada · atravesse a porta do portal.';
@@ -2352,7 +2456,12 @@ export class OpenDungeonEngine {
     const controller = this.controllers.get(holder);
     if (!controller) return null;
     controller.getWorldPosition(this.handPosition);
-    const directDistance = this.handPosition.distanceTo(item.object.position);
+    let directDistance = this.handPosition.distanceTo(item.object.position);
+    if (item.id === 'sword') {
+      this.scene.updateMatrixWorld(true);
+      const anchor = this.swordAnchorForController(holder, item);
+      directDistance = this.handPosition.distanceTo(item.object.localToWorld(anchor.clone()));
+    }
     if (directDistance <= GRAB_DISTANCE) return directDistance;
     controller.getWorldQuaternion(this.worldQuaternion);
     const forward = this.slotPosition.set(0, 0, -1).applyQuaternion(this.worldQuaternion);

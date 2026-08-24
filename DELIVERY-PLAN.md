@@ -202,6 +202,17 @@ O jogador abre a bolsa, guarda uma poção, uma chave e o cubo rúnico, fecha, c
 - [x] Áudio, haptics, status e equivalência desktop comunicam cada golpe válido.
 - [ ] Homologar sensação do limiar de velocidade e alcance da lâmina no Meta Quest.
 
+### D3.2 — Manipulação livre da espada
+
+- [x] Boneco é imortal e registra quantidade ilimitada de golpes válidos.
+- [x] Pegada direta usa o ponto real escolhido ao longo da espada.
+- [x] Orientação relativa do momento da pegada é preservada, sem pose reta obrigatória.
+- [x] Uma segunda mão pode entrar em outro ponto e orientar a arma junto com a primeira.
+- [x] Mão secundária pode sair sem soltar a arma.
+- [x] Soltar a mão principal transfere a autoridade para a secundária sem queda.
+- [x] Puxão distante e retirada da bolsa usam o cabo como ponto seguro inicial.
+- [ ] Homologar liberdade, estabilidade e conforto de pegadas incomuns no Meta Quest.
+
 ### Experiência
 
 O jogador retira espada e escudo, ataca um boneco, bloqueia um golpe mecânico, executa um parry e quebra o alvo. Um painel mostra somente feedback útil e oferece repetição.
@@ -224,7 +235,7 @@ O jogador retira espada e escudo, ataca um boneco, bloqueia um golpe mecânico, 
 - [ ] Escudo só bloqueia pelo lado e ângulo válidos.
 - [ ] Parry depende de janela, não de contato permanente.
 - [ ] Arma nunca fica presa permanentemente no cenário.
-- [ ] Reinício limpa dano, efeitos, timers e sockets.
+- [x] Reinício limpa contagem de golpes, efeitos, timers, pegadas e sockets.
 
 ## 7. D4 — Primeiro inimigo completo
 
