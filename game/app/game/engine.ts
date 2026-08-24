@@ -9,6 +9,7 @@ import {
 } from './collision';
 import { applyDeadzone, clampFrameDelta, movementVelocity, rigPositionForTrackedSpawn } from './motion';
 import { captureGripRotationOffset, heldObjectRotation } from './grip';
+import { INVENTORY_PREVIEW_SCALE, inventoryPreviewYaw } from './inventoryPreview';
 import { canInsertMissionKey, doorBlocksPassage } from './missionDoor';
 import { remoteGrabDistance, remotePullDuration, remotePullProgress } from './remoteGrab';
 import {
@@ -235,10 +236,10 @@ export class OpenDungeonEngine {
 
     const interactables = this.buildRoom();
     this.items.set('cube', this.createItemRuntime(
-      'cube', 'Cubo rúnico', interactables.runeCube, interactables.cubeMaterial, CUBE_HOME, CUBE_RADIUS, 0.34,
+      'cube', 'Cubo rúnico', interactables.runeCube, interactables.cubeMaterial, CUBE_HOME, CUBE_RADIUS, INVENTORY_PREVIEW_SCALE.cube,
     ));
     this.items.set('key', this.createItemRuntime(
-      'key', 'Chave da passagem', interactables.missionKey, interactables.keyMaterial, KEY_HOME, 0.18, 0.48,
+      'key', 'Chave da passagem', interactables.missionKey, interactables.keyMaterial, KEY_HOME, 0.18, INVENTORY_PREVIEW_SCALE.key,
     ));
     this.door = interactables.door;
     this.lockSocket = interactables.lockSocket;
@@ -880,9 +881,9 @@ export class OpenDungeonEngine {
       if (slot) {
         slot.getWorldPosition(this.worldPosition);
         this.runeCube.position.copy(this.worldPosition);
-        this.runeCube.rotation.set(0, this.animationSeconds * 0.7, 0);
+        this.runeCube.rotation.set(0, inventoryPreviewYaw(this.animationSeconds, this.objectState.storedSlot), 0);
       }
-      this.runeCube.scale.setScalar(0.34);
+      this.runeCube.scale.setScalar(this.cube.inventoryScale);
       this.runeCube.visible = this.bagMenuOpen && this.bagOpenAmount > 0.18;
       this.objectVelocity.set(0, 0, 0);
       this.objectSleeping = true;
@@ -1008,7 +1009,7 @@ export class OpenDungeonEngine {
       if (slot) {
         slot.getWorldPosition(this.worldPosition);
         item.object.position.copy(this.worldPosition);
-        item.object.rotation.set(0, this.animationSeconds * 0.7, 0);
+        item.object.rotation.set(0, inventoryPreviewYaw(this.animationSeconds, item.state.storedSlot), 0);
       }
       item.object.scale.setScalar(item.inventoryScale);
       item.object.visible = this.bagMenuOpen && this.bagOpenAmount > 0.18;

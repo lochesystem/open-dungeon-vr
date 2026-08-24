@@ -17,6 +17,13 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D2 — Bolsa da aventura.
 
+## [0.4.1] — 2026-08-24
+
+### Corrigido
+
+- Prévias do cubo e da chave foram reduzidas para permanecerem com folga dentro dos próprios slots.
+- Rotação completa dos itens guardados foi substituída por uma oscilação lenta de no máximo 9°, evitando invasão visual dos slots vizinhos.
+
 ## [0.4.0] — 2026-08-24
 
 ### Adicionado
