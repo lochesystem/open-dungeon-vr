@@ -73,7 +73,7 @@ async function showLod(lod) {
   });
   scene.add(candidate);
   playAnimation(activeAnimation);
-  const triangles = lod === 0 ? '4.114' : '1.654';
+  const triangles = lod === 0 ? '4.434' : '1.846';
   status.textContent = `LOD${lod} · ${triangles} triângulos · 2,23 m`;
 }
 

@@ -26,7 +26,7 @@ test('guardian model candidate contains valid Quest-sized LOD GLBs', async () =>
   assert.ok(lod1.bounds.height >= 2.1 && lod1.bounds.height <= 2.35);
   assert.ok(lod0.materials <= 7);
   assert.ok(lod1.materials <= 7);
-  assert.ok(lod0.bones >= 20);
+  assert.ok(lod0.bones >= 29);
   assert.deepEqual(lod0.animations, ['idle', 'walk']);
   assert.deepEqual(lod1.animations, ['idle', 'walk']);
 
@@ -40,7 +40,7 @@ test('guardian model candidate contains valid Quest-sized LOD GLBs', async () =>
     assert.ok(gltf.skins.length >= 1);
     assert.deepEqual(gltf.animations.map((animation) => animation.name), ['idle', 'walk']);
     const nodeNames = new Set(gltf.nodes.map((node) => node.name));
-    for (const requiredBone of ['rig_root', 'hips', 'chest', 'head', 'left_hand_bone', 'right_hand_bone', 'socket_weapon_right', 'socket_memory_rune']) {
+    for (const requiredBone of ['rig_root', 'hips', 'chest', 'head', 'left_wrist', 'right_wrist', 'left_ankle', 'right_ankle', 'left_hand_bone', 'right_hand_bone', 'socket_weapon_right', 'socket_memory_rune']) {
       assert.ok(nodeNames.has(requiredBone), `missing rig node ${requiredBone}`);
     }
     assert.ok(gltf.meshes.some((mesh) => mesh.primitives.some((primitive) => primitive.attributes.JOINTS_0 !== undefined && primitive.attributes.WEIGHTS_0 !== undefined)));

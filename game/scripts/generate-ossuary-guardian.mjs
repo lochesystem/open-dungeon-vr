@@ -75,9 +75,11 @@ function addLimb(parent, side, materials, detail, isArm) {
     const forearm = new THREE.Group();
     forearm.name = `${side}_forearm_pivot`;
     forearm.position.set(0, -0.48, 0);
-    addMesh(forearm, `${side}_elbow`, new THREE.SphereGeometry(0.082, radial, Math.max(5, radial / 2)), materials.boneDark, [0, 0, 0]);
+    addMesh(forearm, `${side}_elbow`, new THREE.SphereGeometry(0.082, radial, Math.max(5, radial / 2)), materials.armorEdge, [0, 0, 0]);
+    addMesh(forearm, `${side}_elbow_hinge`, new THREE.CylinderGeometry(0.055, 0.055, 0.19, radial), materials.boneDark, [0, 0, 0], [1, 1, 1], [0, 0, Math.PI / 2]);
     addMesh(forearm, `${side}_forearm_bone`, new THREE.CylinderGeometry(0.055, 0.07, 0.42, radial), materials.bone, [0, -0.2, 0]);
     addMesh(forearm, `${side}_bracer`, new THREE.CylinderGeometry(0.105, 0.082, 0.34, radial), materials.armor, [0, -0.2, 0], [1, 1, 0.78]);
+    addMesh(forearm, `${side}_wrist_joint`, new THREE.CylinderGeometry(0.072, 0.072, 0.09, radial), materials.armorEdge, [0, -0.39, 0.015]);
     addMesh(forearm, `${side}_hand`, new THREE.BoxGeometry(0.13, 0.18, 0.1), materials.bone, [0, -0.45, 0.015], [1, 1, 0.8]);
     if (detail === 0) {
       for (let finger = -1.5; finger <= 1.5; finger += 1) {
@@ -96,6 +98,7 @@ function addLimb(parent, side, materials, detail, isArm) {
     addMesh(shin, `${side}_knee`, new THREE.DodecahedronGeometry(0.115, 0), materials.armorEdge, [0, 0, 0.055], [1, 0.9, 0.75]);
     addMesh(shin, `${side}_shin_bone`, new THREE.CylinderGeometry(0.07, 0.085, 0.32, radial), materials.bone, [0, -0.15, 0]);
     addMesh(shin, `${side}_greave`, new THREE.CylinderGeometry(0.12, 0.095, 0.34, radial), materials.armor, [0, -0.16, 0.035], [1, 1, 0.78]);
+    addMesh(shin, `${side}_ankle_joint`, new THREE.SphereGeometry(0.075, radial, Math.max(5, radial / 2)), materials.armorEdge, [0, -0.31, 0.09]);
     addMesh(shin, `${side}_boot`, new THREE.BoxGeometry(0.24, 0.14, 0.38), materials.armor, [0, -0.36, 0.09]);
     addMesh(shin, `${side}_toe_bone`, new THREE.BoxGeometry(0.18, 0.08, 0.16), materials.bone, [0, -0.33, 0.25]);
     group.add(shin);
@@ -183,10 +186,12 @@ function buildSkeleton() {
     const sign = side === 'left' ? -1 : 1;
     bones[`${side}UpperArm`] = addBone(`${side}_upper_arm`, bones.chest, [sign * 0.48, 0.18, 0]);
     bones[`${side}Forearm`] = addBone(`${side}_forearm`, bones[`${side}UpperArm`], [0, -0.48, 0]);
-    bones[`${side}Hand`] = addBone(`${side}_hand_bone`, bones[`${side}Forearm`], [0, -0.45, 0.015]);
+    bones[`${side}Wrist`] = addBone(`${side}_wrist`, bones[`${side}Forearm`], [0, -0.4, 0.015]);
+    bones[`${side}Hand`] = addBone(`${side}_hand_bone`, bones[`${side}Wrist`], [0, -0.05, 0]);
     bones[`${side}UpperLeg`] = addBone(`${side}_upper_leg`, bones.hips, [sign * 0.19, -0.02, 0]);
     bones[`${side}LowerLeg`] = addBone(`${side}_lower_leg`, bones[`${side}UpperLeg`], [0, -0.4, 0]);
-    bones[`${side}Foot`] = addBone(`${side}_foot`, bones[`${side}LowerLeg`], [0, -0.36, 0.09]);
+    bones[`${side}Ankle`] = addBone(`${side}_ankle`, bones[`${side}LowerLeg`], [0, -0.31, 0.09]);
+    bones[`${side}Foot`] = addBone(`${side}_foot`, bones[`${side}Ankle`], [0, -0.05, 0]);
     addBone(`socket_hand_${side}`, bones[`${side}Hand`], [0, -0.1, 0.04]);
   }
 
@@ -206,9 +211,11 @@ function boneForPart(name, bones) {
   if (name === 'spine') return bones.spine;
   for (const side of ['left', 'right']) {
     if (!name.startsWith(`${side}_`)) continue;
+    if (/wrist/.test(name)) return bones[`${side}Wrist`];
     if (/finger|hand/.test(name)) return bones[`${side}Hand`];
     if (/forearm|bracer|elbow/.test(name)) return bones[`${side}Forearm`];
     if (/upper_arm|shoulder|pauldron/.test(name)) return bones[`${side}UpperArm`];
+    if (/ankle/.test(name)) return bones[`${side}Ankle`];
     if (/boot|toe/.test(name)) return bones[`${side}Foot`];
     if (/shin|greave|knee/.test(name)) return bones[`${side}LowerLeg`];
     if (/hip|thigh/.test(name)) return bones[`${side}UpperLeg`];
@@ -227,6 +234,10 @@ function rotationTrack(bone, times, angles) {
   return new THREE.QuaternionKeyframeTrack(`${bone.name}.quaternion`, times, quaternionValues(angles));
 }
 
+function positionTrack(bone, times, positions) {
+  return new THREE.VectorKeyframeTrack(`${bone.name}.position`, times, positions.flat());
+}
+
 function buildAnimations(bones) {
   const idleTimes = [0, 1.2, 2.4];
   const idle = new THREE.AnimationClip('idle', 2.4, [
@@ -236,16 +247,29 @@ function buildAnimations(bones) {
     rotationTrack(bones.rightUpperArm, idleTimes, [[0, 0, 0], [-0.025, 0, 0.02], [0, 0, 0]]),
   ]);
 
-  const walkTimes = [0, 0.2, 0.4, 0.6, 0.8];
-  const swing = (amount) => [[amount, 0, 0], [0, 0, 0], [-amount, 0, 0], [0, 0, 0], [amount, 0, 0]];
+  const walkTimes = Array.from({ length: 9 }, (_, index) => index * 0.1);
+  const phaseAt = (time) => (time / 0.8) * Math.PI * 2;
+  const swing = (amount, phaseOffset = 0) => walkTimes.map((time) => [Math.sin(phaseAt(time) + phaseOffset) * amount, 0, 0]);
+  const flex = (amount, phaseOffset = 0, rest = 0) => walkTimes.map((time) => [rest + Math.max(0, Math.sin(phaseAt(time) + phaseOffset)) * amount, 0, 0]);
+  const counterFlex = (amount, phaseOffset = 0) => walkTimes.map((time) => [-Math.max(0, Math.sin(phaseAt(time) + phaseOffset)) * amount, 0, 0]);
   const walk = new THREE.AnimationClip('walk', 0.8, [
-    rotationTrack(bones.leftUpperLeg, walkTimes, swing(0.42)),
-    rotationTrack(bones.rightUpperLeg, walkTimes, swing(-0.42)),
-    rotationTrack(bones.leftLowerLeg, walkTimes, [[0, 0, 0], [0.18, 0, 0], [0.48, 0, 0], [0.12, 0, 0], [0, 0, 0]]),
-    rotationTrack(bones.rightLowerLeg, walkTimes, [[0.48, 0, 0], [0.12, 0, 0], [0, 0, 0], [0.18, 0, 0], [0.48, 0, 0]]),
-    rotationTrack(bones.leftUpperArm, walkTimes, swing(-0.3)),
-    rotationTrack(bones.rightUpperArm, walkTimes, swing(0.3)),
-    rotationTrack(bones.chest, walkTimes, [[0, -0.04, 0], [0, 0, 0], [0, 0.04, 0], [0, 0, 0], [0, -0.04, 0]]),
+    positionTrack(bones.hips, walkTimes, walkTimes.map((time) => [Math.sin(phaseAt(time)) * 0.018, 0.86 + Math.abs(Math.sin(phaseAt(time))) * 0.025, 0])),
+    rotationTrack(bones.leftUpperLeg, walkTimes, swing(0.34)),
+    rotationTrack(bones.rightUpperLeg, walkTimes, swing(0.34, Math.PI)),
+    rotationTrack(bones.leftLowerLeg, walkTimes, flex(0.46, Math.PI)),
+    rotationTrack(bones.rightLowerLeg, walkTimes, flex(0.46, 0)),
+    rotationTrack(bones.leftAnkle, walkTimes, counterFlex(0.3, Math.PI)),
+    rotationTrack(bones.rightAnkle, walkTimes, counterFlex(0.3, 0)),
+    rotationTrack(bones.leftFoot, walkTimes, swing(0.08, Math.PI)),
+    rotationTrack(bones.rightFoot, walkTimes, swing(0.08, 0)),
+    rotationTrack(bones.leftUpperArm, walkTimes, swing(0.25, Math.PI)),
+    rotationTrack(bones.rightUpperArm, walkTimes, swing(0.25, 0)),
+    rotationTrack(bones.leftForearm, walkTimes, flex(0.12, 0, 0.08)),
+    rotationTrack(bones.rightForearm, walkTimes, flex(0.12, Math.PI, 0.08)),
+    rotationTrack(bones.leftWrist, walkTimes, swing(0.045, Math.PI)),
+    rotationTrack(bones.rightWrist, walkTimes, swing(0.045, 0)),
+    rotationTrack(bones.chest, walkTimes, walkTimes.map((time) => [0, Math.sin(phaseAt(time)) * 0.045, Math.sin(phaseAt(time) * 2) * 0.012])),
+    rotationTrack(bones.head, walkTimes, walkTimes.map((time) => [0, -Math.sin(phaseAt(time)) * 0.025, 0])),
   ]);
   return [idle, walk];
 }
