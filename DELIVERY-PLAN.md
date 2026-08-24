@@ -326,7 +326,17 @@ A D4.2 fechou o primeiro ciclo ofensivo e abriu caminho para tornar o Guardião 
 - [x] Runa compartilha puxão distante, física, recuperação e os seis slots da bolsa.
 - [ ] Homologar alcance da espada, duração do stagger e leitura da queda no Meta Quest.
 
-A próxima fatia D4.4 adicionará uma segunda variação de ataque e seleção contextual simples. Arte final, parry e stamina continuam fora desta rodada.
+### D4.4 — Visual FULL IA
+
+- [ ] Concept aprovado do Guardião Ossário.
+- [ ] Modelo 3D gerado por IA.
+- [ ] Texturas próprias.
+- [ ] Rig humanoide.
+- [ ] Idle, caminhada, ataque, stagger e morte.
+- [ ] Dois níveis de detalhe para o Quest.
+- [ ] Substituição do blockout sem alterar gameplay.
+
+O gate desta entrega é visual e técnico: o inimigo final deve conservar percepção, locomoção, hitboxes, ataque, dano, stagger, morte e recompensa já validados. A segunda variação de ataque fica para uma etapa posterior de refinamento do combate.
 
 ### Experiência
 
@@ -485,7 +495,7 @@ O slice não começa do zero: ele amplia uma cadeia já jogável e homologada.
 
 ## 13. Ordem imediata
 
-A etapa ativa é **D4 — Primeiro inimigo completo**. A D4.3 fecha o primeiro encontro derrotável, incluindo vida, stagger, morte e recompensa guardável; a próxima fatia D4.4 adiciona uma segunda variação de ataque. Parry e stamina permanecem adiados para uma rodada posterior de refinamento do combate.
+A etapa ativa é **D4 — Primeiro inimigo completo**. A D4.3 fecha o primeiro encontro derrotável; a próxima fatia é **D4.4 — Visual FULL IA**, substituindo o blockout por concept, modelo, texturas, rig, animações e dois LODs sem alterar o gameplay. Segundo ataque, parry e stamina permanecem para uma rodada posterior de refinamento do combate.
 
 ## 14. Registro de andamento
 
