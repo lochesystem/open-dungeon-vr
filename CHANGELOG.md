@@ -17,6 +17,19 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D2 — Bolsa da aventura.
 
+## [0.2.1] — 2026-08-24
+
+### Corrigido
+
+- Sessão imersiva agora solicita `layers`, como exige o caminho de projection layers usado pelo `WebXRManager` atual no Meta Quest.
+- Controladores WebXR agora pertencem ao rig do jogador e acompanham corretamente locomoção e snap turn.
+- Tela preta ao entrar em VR causada pela configuração incompleta da sessão WebXR.
+
+### Validado
+
+- Opções da sessão WebXR cobertas por dois testes headless adicionais.
+- Build local e build estático do GitHub Pages aprovados antes da publicação.
+
 ## [0.2.0] — 2026-08-24
 
 ### Adicionado

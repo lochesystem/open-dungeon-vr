@@ -20,6 +20,7 @@ import {
   shouldRecoverObject,
   sweptTargetHit,
 } from './objectInteraction';
+import { createVrSessionInit } from './xrSession';
 
 export type InteractionSnapshot = {
   canGrab: boolean;
@@ -187,9 +188,7 @@ export class OpenDungeonEngine {
     const supported = await navigator.xr.isSessionSupported('immersive-vr');
     if (!supported) throw new Error('Headset WebXR não encontrado.');
 
-    const session = await navigator.xr.requestSession('immersive-vr', {
-      optionalFeatures: ['local-floor', 'bounded-floor'],
-    });
+    const session = await navigator.xr.requestSession('immersive-vr', createVrSessionInit());
     session.addEventListener('end', () => this.options.onXrChange?.(false), { once: true });
     await this.renderer.xr.setSession(session);
     this.options.onXrChange?.(true);
@@ -377,7 +376,7 @@ export class OpenDungeonEngine {
       this.controllerListeners.push({ controller, start, end });
       this.controllers.set(holder, controller);
       this.poseHistory.set(holder, []);
-      this.scene.add(controller);
+      this.playerRig.add(controller);
     });
     this.poseHistory.set('desktop', []);
   }
