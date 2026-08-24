@@ -1,0 +1,13 @@
+{
+  "id": "enemy_ossuary_guardian_v1",
+  "source": "ai-generated",
+  "generator": "openai-imagegen-built-in",
+  "license": "project-original",
+  "concept": "ossuary-guardian-concept-v1.png",
+  "turnaround": "ossuary-guardian-turnaround-v1.png",
+  "prompts": "prompts.md",
+  "targetRig": "humanoid_large_v1",
+  "targetLods": 2,
+  "gameplayReference": "D4.3 procedural blockout",
+  "approved": false
+}

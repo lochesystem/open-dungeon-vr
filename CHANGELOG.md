@@ -11,6 +11,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Build estático dedicado ao GitHub Pages, preservando o runtime Vinext usado localmente.
 - Workflow de validação e publicação automática da branch `main`.
 - Documentação da URL HTTPS para testes no Meta Quest.
+- Primeiro candidato visual FULL IA do Guardião Ossário, com folha de apresentação, turnaround técnico, prompts e manifesto de proveniência.
 
 ### Planejado
 
