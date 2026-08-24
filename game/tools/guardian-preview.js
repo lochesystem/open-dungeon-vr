@@ -3,6 +3,8 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 const scene = new THREE.Scene();
+const turntableEnabled = new URLSearchParams(location.search).has('turntable');
+const clock = new THREE.Clock();
 scene.background = new THREE.Color(0x101515);
 scene.fog = new THREE.Fog(0x101515, 7, 14);
 
@@ -71,6 +73,8 @@ addEventListener('resize', () => {
 });
 
 renderer.setAnimationLoop(() => {
+  const delta = Math.min(clock.getDelta(), 0.05);
+  if (candidate && turntableEnabled) candidate.rotation.y += delta * 0.54;
   controls.update();
   renderer.render(scene, camera);
 });

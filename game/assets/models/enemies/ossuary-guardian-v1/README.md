@@ -11,6 +11,7 @@
 - `ossuary-guardian-lod1.glb` — versão leve, 1.654 triângulos.
 - `qa-report.json` — contagem de malhas, materiais, vértices, triângulos e dimensões.
 - `manifest.json` — origem, licença e estado de aprovação.
+- `../../../../artifacts/guardian-model-turntable.gif` — inspeção em uma volta completa do LOD0.
 
 As partes têm nomes semânticos e pivôs separados para cabeça, peito, quadril, braços e pernas. Essa separação preserva a leitura do concept e prepara a próxima entrega de rig; não representa o número final de draw calls do asset já unido e skinned.
 

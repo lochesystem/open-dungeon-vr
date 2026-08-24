@@ -15,6 +15,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Concept v1 do Guardião Ossário aprovado e bloqueado como referência para modelo, materiais, rig e LODs.
 - Candidato modular 3D do Guardião Ossário exportado em GLB nos níveis LOD0 e LOD1.
 - Gerador procedural reprodutível, manifesto do modelo, relatório de orçamento e página local de inspeção visual.
+- Turntable animado do LOD0 com frente, laterais e costas para revisão visual.
 
 ### Validado
 
