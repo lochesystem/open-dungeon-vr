@@ -9,6 +9,7 @@ import {
 } from './collision';
 import { applyDeadzone, clampFrameDelta, movementVelocity, rigPositionForTrackedSpawn } from './motion';
 import { captureGripRotationOffset, heldObjectRotation } from './grip';
+import { canInsertMissionKey, doorBlocksPassage } from './missionDoor';
 import { remoteGrabDistance, remotePullDuration, remotePullProgress } from './remoteGrab';
 import {
   INITIAL_OBJECT_STATE,
@@ -33,6 +34,9 @@ export type InteractionSnapshot = {
   heldBy: Holder | null;
   storedSlot: number | null;
   targetHits: number;
+  storedItemCount: number;
+  keyInserted: boolean;
+  doorOpen: boolean;
   status: string;
 };
 
@@ -55,6 +59,8 @@ const BAG_SLOT_COUNT = 6;
 const DESKTOP_REACH = 3.2;
 const ROOM_BOUNDS: CollisionBounds = { minX: -11.7, maxX: 11.7, minZ: -11.7, maxZ: 11.7 };
 const CUBE_HOME = new THREE.Vector3(3, 1.27, 4.2);
+const KEY_HOME = new THREE.Vector3(-3, 1.2, 4.2);
+const LOCK_POSITION = new THREE.Vector3(1.45, 1.18, -7.05);
 const TARGET_POSITION = new THREE.Vector3(3, 2, -4.8);
 const TARGET_RADIUS = 0.72;
 
@@ -98,12 +104,49 @@ const PEDESTAL_COLLIDER: BoxCollider = {
   rotation: 0,
 };
 
+const KEY_PEDESTAL_COLLIDER: BoxCollider = {
+  kind: 'box',
+  id: 'mission-key-pedestal',
+  x: KEY_HOME.x,
+  z: KEY_HOME.z,
+  halfX: 0.52,
+  halfZ: 0.52,
+  rotation: 0,
+};
+
+const LOCKED_DOOR_COLLIDER: BoxCollider = {
+  kind: 'box',
+  id: 'locked-portal-door',
+  x: 0,
+  z: -7.15,
+  halfX: 1.72,
+  halfZ: 0.16,
+  rotation: 0,
+};
+
 const ROOM_COLLIDERS: StaticCollider[] = [
   ...PILLAR_COLLIDERS,
   ...PORTAL_COLLIDERS,
   ALTAR_COLLIDER,
   PEDESTAL_COLLIDER,
+  KEY_PEDESTAL_COLLIDER,
 ];
+
+type ItemId = 'cube' | 'key';
+
+type ItemRuntime = {
+  id: ItemId;
+  label: string;
+  object: THREE.Object3D;
+  material: THREE.MeshStandardMaterial;
+  state: AdventureObjectState;
+  home: THREE.Vector3;
+  radius: number;
+  inventoryScale: number;
+  velocity: THREE.Vector3;
+  previousPosition: THREE.Vector3;
+  sleeping: boolean;
+};
 
 export class OpenDungeonEngine {
   private readonly scene = new THREE.Scene();
@@ -120,8 +163,6 @@ export class OpenDungeonEngine {
   private readonly handPosition = new THREE.Vector3();
   private readonly slotPosition = new THREE.Vector3();
   private readonly worldQuaternion = new THREE.Quaternion();
-  private readonly objectVelocity = new THREE.Vector3();
-  private readonly previousObjectPosition = new THREE.Vector3();
   private readonly raycaster = new THREE.Raycaster();
   private readonly controllers = new Map<Holder, THREE.Group>();
   private readonly poseHistory = new Map<Holder, PoseSample[]>();
@@ -132,15 +173,17 @@ export class OpenDungeonEngine {
   private readonly bagSlots: THREE.Mesh[] = [];
   private readonly bagSlotMaterials: THREE.MeshStandardMaterial[] = [];
   private readonly bagMenuMaterial: THREE.MeshBasicMaterial;
-  private readonly runeCube: THREE.Mesh;
-  private readonly cubeMaterial: THREE.MeshStandardMaterial;
+  private readonly items = new Map<ItemId, ItemRuntime>();
+  private readonly door: THREE.Mesh;
+  private readonly lockSocket: THREE.Group;
+  private doorColliderDebug: THREE.Object3D | null = null;
   private readonly targetMaterial: THREE.MeshStandardMaterial;
   private readonly targetCore: THREE.Mesh;
-  private objectState: AdventureObjectState = { ...INITIAL_OBJECT_STATE };
   private targetHits = 0;
   private targetPulseSeconds = 0;
   private lastInteractionSignature = '';
-  private objectSleeping = true;
+  private keyInserted = false;
+  private doorOpenAmount = 0;
   private audioContext: AudioContext | null = null;
   private animationSeconds = 0;
   private lastFrameSeconds = 0;
@@ -156,6 +199,7 @@ export class OpenDungeonEngine {
   private desktopBagOpenSeconds = 0;
   private leftXWasPressed = false;
   private pullAnimation: {
+    itemId: ItemId;
     holder: 'left' | 'right';
     fromPosition: THREE.Vector3;
     fromRotation: THREE.Quaternion;
@@ -190,8 +234,14 @@ export class OpenDungeonEngine {
     this.scene.add(this.playerRig);
 
     const interactables = this.buildRoom();
-    this.runeCube = interactables.runeCube;
-    this.cubeMaterial = interactables.cubeMaterial;
+    this.items.set('cube', this.createItemRuntime(
+      'cube', 'Cubo rúnico', interactables.runeCube, interactables.cubeMaterial, CUBE_HOME, CUBE_RADIUS, 0.34,
+    ));
+    this.items.set('key', this.createItemRuntime(
+      'key', 'Chave da passagem', interactables.missionKey, interactables.keyMaterial, KEY_HOME, 0.18, 0.48,
+    ));
+    this.door = interactables.door;
+    this.lockSocket = interactables.lockSocket;
     this.targetMaterial = interactables.targetMaterial;
     this.targetCore = interactables.targetCore;
     this.bagMenuMaterial = this.basicMaterial({
@@ -300,6 +350,66 @@ export class OpenDungeonEngine {
   private geometry<T extends THREE.BufferGeometry>(geometry: T): T {
     this.disposableGeometries.add(geometry);
     return geometry;
+  }
+
+  private createItemRuntime(
+    id: ItemId,
+    label: string,
+    object: THREE.Object3D,
+    material: THREE.MeshStandardMaterial,
+    home: THREE.Vector3,
+    radius: number,
+    inventoryScale: number,
+  ): ItemRuntime {
+    return {
+      id,
+      label,
+      object,
+      material,
+      state: { ...INITIAL_OBJECT_STATE },
+      home: home.clone(),
+      radius,
+      inventoryScale,
+      velocity: new THREE.Vector3(),
+      previousPosition: new THREE.Vector3(),
+      sleeping: true,
+    };
+  }
+
+  private get cube() {
+    return this.items.get('cube')!;
+  }
+
+  private get runeCube() {
+    return this.cube.object;
+  }
+
+  private get cubeMaterial() {
+    return this.cube.material;
+  }
+
+  private get objectState() {
+    return this.cube.state;
+  }
+
+  private set objectState(state: AdventureObjectState) {
+    this.cube.state = state;
+  }
+
+  private get objectVelocity() {
+    return this.cube.velocity;
+  }
+
+  private get previousObjectPosition() {
+    return this.cube.previousPosition;
+  }
+
+  private get objectSleeping() {
+    return this.cube.sleeping;
+  }
+
+  private set objectSleeping(value: boolean) {
+    this.cube.sleeping = value;
   }
 
   private buildRoom() {
@@ -418,6 +528,50 @@ export class OpenDungeonEngine {
     runeCube.position.copy(CUBE_HOME);
     this.scene.add(runeCube);
 
+    const keyPedestal = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(1.04, 0.92, 1.04)), stone);
+    keyPedestal.position.set(KEY_HOME.x, 0.46, KEY_HOME.z);
+    this.scene.add(keyPedestal);
+    const keyMaterial = this.material({
+      color: 0xe0a84f,
+      emissive: 0x5c2e08,
+      emissiveIntensity: 1.15,
+      roughness: 0.3,
+      metalness: 0.78,
+    });
+    const missionKey = new THREE.Group();
+    missionKey.name = 'mission-key';
+    const keyBow = new THREE.Mesh(this.geometry(new THREE.TorusGeometry(0.13, 0.035, 10, 28)), keyMaterial);
+    keyBow.position.x = -0.17;
+    const keyShaft = new THREE.Mesh(this.geometry(new THREE.CylinderGeometry(0.035, 0.035, 0.38, 12)), keyMaterial);
+    keyShaft.rotation.z = Math.PI / 2;
+    keyShaft.position.x = 0.12;
+    const keyTooth = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.1, 0.11, 0.07)), keyMaterial);
+    keyTooth.position.set(0.29, -0.055, 0);
+    const keyToothTip = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.07, 0.075, 0.07)), keyMaterial);
+    keyToothTip.position.set(0.34, 0.02, 0);
+    missionKey.add(keyBow, keyShaft, keyTooth, keyToothTip);
+    missionKey.position.copy(KEY_HOME);
+    missionKey.rotation.set(0.12, 0.3, -0.08);
+    this.scene.add(missionKey);
+
+    const doorMaterial = this.material({ color: 0x342f29, roughness: 0.7, metalness: 0.34 });
+    const door = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(3.42, 3.6, 0.26)), doorMaterial);
+    door.name = 'locked-portal-door';
+    door.position.set(0, 1.8, -7.15);
+    this.scene.add(door);
+    const doorRune = new THREE.Mesh(this.geometry(new THREE.RingGeometry(0.46, 0.53, 32)), rune);
+    doorRune.position.set(0, 0.1, 0.14);
+    door.add(doorRune);
+
+    const lockSocket = new THREE.Group();
+    lockSocket.name = 'mission-key-lock';
+    lockSocket.position.copy(LOCK_POSITION);
+    const lockPlate = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.42, 0.58, 0.12)), bronze);
+    const keyHole = new THREE.Mesh(this.geometry(new THREE.RingGeometry(0.07, 0.105, 24)), rune);
+    keyHole.position.z = 0.075;
+    lockSocket.add(lockPlate, keyHole);
+    this.scene.add(lockSocket);
+
     const targetGroup = new THREE.Group();
     targetGroup.position.copy(TARGET_POSITION);
     const targetMaterial = this.material({
@@ -439,14 +593,14 @@ export class OpenDungeonEngine {
 
     const hemi = new THREE.HemisphereLight(0xc8fff1, 0x273129, 2.8);
     this.scene.add(hemi);
-    const key = new THREE.DirectionalLight(0xffe0bd, 3.6);
-    key.position.set(-4, 8, 5);
-    this.scene.add(key);
+    const keyLight = new THREE.DirectionalLight(0xffe0bd, 3.6);
+    keyLight.position.set(-4, 8, 5);
+    this.scene.add(keyLight);
     const portalLight = new THREE.PointLight(0x30d7aa, 18, 11, 2);
     portalLight.position.set(0, 2.3, -6.9);
     this.scene.add(portalLight);
 
-    return { runeCube, cubeMaterial, targetMaterial, targetCore };
+    return { runeCube, cubeMaterial, missionKey, keyMaterial, door, lockSocket, targetMaterial, targetCore };
   }
 
   private buildControllers() {
@@ -531,7 +685,7 @@ export class OpenDungeonEngine {
     const obstacleMaterial = this.material({ color: 0xff6b57, wireframe: true, transparent: true, opacity: 0.82 });
     const playerMaterial = this.material({ color: 0x51e6b8, wireframe: true, transparent: true, opacity: 0.95 });
 
-    for (const collider of ROOM_COLLIDERS) {
+    for (const collider of [...ROOM_COLLIDERS, LOCKED_DOOR_COLLIDER]) {
       if (collider.kind === 'box') {
         const mesh = new THREE.Mesh(
           this.geometry(new THREE.BoxGeometry(collider.halfX * 2, 2.2, collider.halfZ * 2)),
@@ -539,6 +693,7 @@ export class OpenDungeonEngine {
         );
         mesh.position.set(collider.x, 1.1, collider.z);
         mesh.rotation.y = collider.rotation;
+        if (collider.id === LOCKED_DOOR_COLLIDER.id) this.doorColliderDebug = mesh;
         this.collisionDebug.add(mesh);
       } else {
         const mesh = new THREE.Mesh(
@@ -585,11 +740,13 @@ export class OpenDungeonEngine {
     }
     if (this.paused || event.repeat) return;
     if (event.code === 'KeyE') {
-      if (this.objectState.holder === 'desktop') this.releaseHeldObject('desktop', false);
+      const held = this.itemForHolder('desktop');
+      if (held?.id === 'key' && this.itemNearLock(held, 0.48)) this.insertKeyInLock(held, 'desktop');
+      else if (held) this.releaseHeldObject('desktop', false);
       else this.tryDesktopGrab();
     }
     if (event.code === 'KeyF') this.releaseHeldObject('desktop', true);
-    if (event.code === 'KeyR') this.resetObject('Cubo devolvido ao pedestal.');
+    if (event.code === 'KeyR') this.resetObject('Itens e passagem restaurados.');
     if (event.code === 'KeyB') this.toggleDesktopBag();
   };
 
@@ -679,7 +836,8 @@ export class OpenDungeonEngine {
     this.yaw -= THREE.MathUtils.clamp(turn, -1, 1) * TURN_SPEED * delta;
 
     const playerPosition = this.getPlayerWorldPosition();
-    const safePosition = resolvePosition(playerPosition, PLAYER_RADIUS, ROOM_COLLIDERS, ROOM_BOUNDS);
+    const colliders = this.activeColliders();
+    const safePosition = resolvePosition(playerPosition, PLAYER_RADIUS, colliders, ROOM_BOUNDS);
     this.playerRig.position.x += safePosition.x - playerPosition.x;
     this.playerRig.position.z += safePosition.z - playerPosition.z;
 
@@ -688,7 +846,7 @@ export class OpenDungeonEngine {
       safePosition,
       { x: velocity.x * delta, z: velocity.z * delta },
       PLAYER_RADIUS,
-      ROOM_COLLIDERS,
+      colliders,
       ROOM_BOUNDS,
     );
     this.playerRig.position.x += resolved.x - safePosition.x;
@@ -697,10 +855,26 @@ export class OpenDungeonEngine {
     this.playerColliderDebug.position.x = resolved.x;
     this.playerColliderDebug.position.z = resolved.z;
     this.updateBagTransform(delta);
+    this.updateDoor(delta);
     this.updateAdventureObject(delta, nowSeconds);
   }
 
+  private activeColliders() {
+    return doorBlocksPassage(this.doorOpenAmount)
+      ? [...ROOM_COLLIDERS, LOCKED_DOOR_COLLIDER]
+      : ROOM_COLLIDERS;
+  }
+
+  private updateDoor(delta: number) {
+    const target = this.keyInserted ? 1 : 0;
+    const blend = delta > 0 ? 1 - Math.exp(-3.8 * delta) : 1;
+    this.doorOpenAmount += (target - this.doorOpenAmount) * blend;
+    this.door.position.y = 1.8 + this.doorOpenAmount * 4.2;
+    if (this.doorColliderDebug) this.doorColliderDebug.visible = doorBlocksPassage(this.doorOpenAmount);
+  }
+
   private updateAdventureObject(delta: number, nowSeconds: number) {
+    this.updateKeyObject(delta, nowSeconds);
     if (this.objectState.storedSlot !== null) {
       const slot = this.bagSlots[this.objectState.storedSlot];
       if (slot) {
@@ -713,7 +887,7 @@ export class OpenDungeonEngine {
       this.objectVelocity.set(0, 0, 0);
       this.objectSleeping = true;
       this.cubeMaterial.emissiveIntensity = 2.2;
-      this.emitInteraction(`Cubo guardado no slot ${this.objectState.storedSlot + 1} da bolsa.`);
+      this.emitInteraction(this.contextualStatus(`Cubo rúnico guardado no slot ${this.objectState.storedSlot + 1}.`));
       return;
     }
 
@@ -727,7 +901,7 @@ export class OpenDungeonEngine {
       const targetRotation = holderRotation && gripOffset
         ? heldObjectRotation(holderRotation, gripOffset)
         : this.runeCube.quaternion.clone();
-      if (this.pullAnimation?.holder === holder) {
+      if (this.pullAnimation?.itemId === 'cube' && this.pullAnimation.holder === holder) {
         this.pullAnimation.elapsed += delta;
         const progress = remotePullProgress(this.pullAnimation.elapsed, this.pullAnimation.duration);
         this.runeCube.position.lerpVectors(this.pullAnimation.fromPosition, heldPosition, progress);
@@ -744,7 +918,7 @@ export class OpenDungeonEngine {
       this.objectVelocity.set(0, 0, 0);
       this.recordPose(holder, this.runeCube.position, nowSeconds);
       this.cubeMaterial.emissiveIntensity = 2.6;
-      this.emitInteraction(this.pullAnimation
+      this.emitInteraction(this.pullAnimation?.itemId === 'cube'
         ? `Cubo atraído para a mão ${holder}.`
         : `Cubo seguro pela mão ${holder === 'desktop' ? 'virtual' : holder}.`);
       return;
@@ -759,7 +933,7 @@ export class OpenDungeonEngine {
         { x: this.runeCube.position.x, z: this.runeCube.position.z },
         { x: desiredX - this.runeCube.position.x, z: desiredZ - this.runeCube.position.z },
         CUBE_RADIUS,
-        ROOM_COLLIDERS,
+        this.activeColliders(),
         ROOM_BOUNDS,
       );
       if (Math.abs(resolved.x - desiredX) > 0.002) this.objectVelocity.x *= -0.34;
@@ -812,7 +986,99 @@ export class OpenDungeonEngine {
 
     const canGrab = this.renderer.xr.isPresenting ? this.anyControllerCanGrab() : this.canDesktopGrab();
     this.cubeMaterial.emissiveIntensity = canGrab ? 3 : 1.2;
-    this.emitInteraction(canGrab ? 'Cubo ao alcance · pressione E para pegar.' : 'Aproxime-se do cubo rúnico.');
+    this.emitInteraction(this.contextualStatus(
+      canGrab ? 'Item sob a mira · pressione para pegar.' : 'Encontre o cubo e a chave nos pedestais.',
+    ));
+  }
+
+  private updateKeyObject(delta: number, nowSeconds: number) {
+    const item = this.items.get('key')!;
+    if (this.keyInserted) {
+      item.object.visible = true;
+      item.object.scale.setScalar(0.72);
+      item.object.position.copy(LOCK_POSITION).add(new THREE.Vector3(0, 0, 0.1));
+      item.object.rotation.set(0, 0, Math.PI / 2);
+      item.velocity.set(0, 0, 0);
+      item.sleeping = true;
+      return;
+    }
+
+    if (item.state.storedSlot !== null) {
+      const slot = this.bagSlots[item.state.storedSlot];
+      if (slot) {
+        slot.getWorldPosition(this.worldPosition);
+        item.object.position.copy(this.worldPosition);
+        item.object.rotation.set(0, this.animationSeconds * 0.7, 0);
+      }
+      item.object.scale.setScalar(item.inventoryScale);
+      item.object.visible = this.bagMenuOpen && this.bagOpenAmount > 0.18;
+      item.velocity.set(0, 0, 0);
+      item.sleeping = true;
+      item.material.emissiveIntensity = 1.9;
+      return;
+    }
+
+    item.object.visible = true;
+    item.object.scale.setScalar(1);
+    if (item.state.holder) {
+      const holder = item.state.holder;
+      const heldPosition = this.heldObjectPosition(holder, item);
+      const holderRotation = this.holderWorldRotation(holder);
+      const gripOffset = this.gripRotationOffsets.get(holder);
+      const targetRotation = holderRotation && gripOffset
+        ? heldObjectRotation(holderRotation, gripOffset)
+        : item.object.quaternion.clone();
+      if (this.pullAnimation?.itemId === item.id && this.pullAnimation.holder === holder) {
+        this.pullAnimation.elapsed += delta;
+        const progress = remotePullProgress(this.pullAnimation.elapsed, this.pullAnimation.duration);
+        item.object.position.lerpVectors(this.pullAnimation.fromPosition, heldPosition, progress);
+        item.object.quaternion.slerpQuaternions(this.pullAnimation.fromRotation, targetRotation, progress);
+        if (progress >= 1) {
+          this.pullAnimation = null;
+          this.playTone(720, 0.07, 0.045);
+          this.pulseController(holder, 0.24, 42);
+        }
+      } else {
+        item.object.position.copy(heldPosition);
+        item.object.quaternion.copy(targetRotation);
+      }
+      item.velocity.set(0, 0, 0);
+      this.recordPose(holder, item.object.position, nowSeconds);
+      item.material.emissiveIntensity = 2.5;
+      return;
+    }
+
+    if (!item.sleeping && delta > 0) {
+      item.velocity.y -= 9.81 * delta;
+      const desiredX = item.object.position.x + item.velocity.x * delta;
+      const desiredZ = item.object.position.z + item.velocity.z * delta;
+      const resolved = resolveMovement(
+        { x: item.object.position.x, z: item.object.position.z },
+        { x: desiredX - item.object.position.x, z: desiredZ - item.object.position.z },
+        item.radius,
+        this.activeColliders(),
+        ROOM_BOUNDS,
+      );
+      item.object.position.set(resolved.x, item.object.position.y + item.velocity.y * delta, resolved.z);
+      item.object.rotation.x += item.velocity.z * delta * 1.5;
+      item.object.rotation.z -= item.velocity.x * delta * 1.5;
+      if (item.object.position.y <= item.radius) {
+        item.object.position.y = item.radius;
+        item.velocity.y = item.velocity.y < -0.6 ? item.velocity.y * -0.25 : 0;
+        item.velocity.x *= 0.82;
+        item.velocity.z *= 0.82;
+        if (item.velocity.lengthSq() < 0.03) {
+          item.velocity.set(0, 0, 0);
+          item.sleeping = true;
+        }
+      }
+    }
+
+    if (shouldRecoverObject(item.object.position, ROOM_BOUNDS)) {
+      this.resetItem(item);
+      this.emitInteraction('A chave se perdeu e retornou ao pedestal.');
+    }
+    item.material.emissiveIntensity = this.itemCanBeGrabbed(item) ? 2.8 : 1.15;
   }
 
   private updateBagTransform(delta: number) {
@@ -846,13 +1112,13 @@ export class OpenDungeonEngine {
 
     for (let index = 0; index < this.bagSlotMaterials.length; index += 1) {
       const material = this.bagSlotMaterials[index];
-      const stored = this.objectState.storedSlot === index;
+      const stored = this.itemInSlot(index);
       material.emissiveIntensity = stored ? 2.6 : 0.5;
-      material.color.setHex(stored ? 0xffc56e : 0x51e6b8);
+      material.color.setHex(stored?.id === 'key' ? 0xffbd55 : stored ? 0x73e4ca : 0x51e6b8);
     }
 
-    const holder = this.objectState.holder;
-    if (holder === 'left' || holder === 'right') {
+    for (const holder of ['left', 'right'] as const) {
+      if (!this.itemForHolder(holder)) continue;
       const nearest = this.nearestBagSlot(holder);
       if (nearest !== null) {
         this.bagSlotMaterials[nearest].emissiveIntensity = 3.4;
@@ -907,56 +1173,109 @@ export class OpenDungeonEngine {
     return nearest;
   }
 
+  private itemForHolder(holder: Holder) {
+    return Array.from(this.items.values()).find((item) => item.state.holder === holder) ?? null;
+  }
+
+  private itemInSlot(slot: number) {
+    return Array.from(this.items.values()).find((item) => item.state.storedSlot === slot) ?? null;
+  }
+
+  private occupiedSlots() {
+    return Array.from(this.items.values())
+      .map((item) => item.state.storedSlot)
+      .filter((slot): slot is number => slot !== null);
+  }
+
+  private controllerNearLock(holder: 'left' | 'right') {
+    const controller = this.controllers.get(holder);
+    if (!controller) return false;
+    controller.getWorldPosition(this.handPosition);
+    this.lockSocket.getWorldPosition(this.worldPosition);
+    return canInsertMissionKey(this.handPosition.distanceTo(this.worldPosition));
+  }
+
+  private itemNearLock(item: ItemRuntime, distance: number) {
+    this.lockSocket.getWorldPosition(this.worldPosition);
+    return item.object.position.distanceTo(this.worldPosition) <= distance;
+  }
+
+  private insertKeyInLock(item: ItemRuntime, holder: Holder) {
+    item.state = { ...item.state, holder: null, storedSlot: null };
+    item.velocity.set(0, 0, 0);
+    item.sleeping = true;
+    this.keyInserted = true;
+    this.pullAnimation = null;
+    this.poseHistory.set(holder, []);
+    this.gripRotationOffsets.delete(holder);
+    this.playTone(440, 0.08, 0.06);
+    this.playTone(760, 0.16, 0.055, 0.08);
+    this.pulseController(holder, 0.55, 105);
+    this.emitInteraction('Chave inserida · a passagem está abrindo.');
+  }
+
   private finishControllerGrab(holder: 'left' | 'right') {
-    if (this.objectState.holder !== holder) return;
+    const item = this.itemForHolder(holder);
+    if (!item) return;
+    if (item.id === 'key' && this.controllerNearLock(holder)) {
+      this.insertKeyInLock(item, holder);
+      return;
+    }
     if (this.isControllerNearWaist(holder)) {
-      const slot = firstAvailableSlot([], BAG_SLOT_COUNT);
+      const slot = firstAvailableSlot(this.occupiedSlots(), BAG_SLOT_COUNT);
       if (slot !== null) {
-        this.storeHeldObject(holder, slot);
-        this.emitInteraction(`Cubo guardado automaticamente no slot ${slot + 1}.`);
+        this.storeHeldObject(holder, slot, item);
+        this.emitInteraction(`${item.label} guardada automaticamente no slot ${slot + 1}.`);
         return;
       }
+      this.emitInteraction('A bolsa está cheia.');
+      return;
     }
     const slot = this.nearestBagSlot(holder);
     if (slot !== null) {
-      this.storeHeldObject(holder, slot);
+      if (this.itemInSlot(slot)) {
+        this.emitInteraction(`O slot ${slot + 1} já está ocupado.`);
+        return;
+      }
+      this.storeHeldObject(holder, slot, item);
       return;
     }
-    this.releaseHeldObject(holder, true);
+    this.releaseHeldObject(holder, true, item);
   }
 
-  private storeHeldObject(holder: Holder, slot: number) {
-    const stored = storeObject(this.objectState, holder, slot, BAG_SLOT_COUNT);
-    if (stored === this.objectState) return;
-    this.objectState = stored;
-    this.objectSleeping = true;
-    this.objectVelocity.set(0, 0, 0);
+  private storeHeldObject(holder: Holder, slot: number, item = this.itemForHolder(holder)) {
+    if (!item || this.itemInSlot(slot)) return;
+    const stored = storeObject(item.state, holder, slot, BAG_SLOT_COUNT);
+    if (stored === item.state) return;
+    item.state = stored;
+    item.sleeping = true;
+    item.velocity.set(0, 0, 0);
     this.poseHistory.set(holder, []);
     this.gripRotationOffsets.delete(holder);
-    if (this.pullAnimation?.holder === holder) this.pullAnimation = null;
+    if (this.pullAnimation?.holder === holder && this.pullAnimation.itemId === item.id) this.pullAnimation = null;
     this.desktopBagOpenSeconds = 1.3;
     this.playTone(440, 0.08, 0.055);
     this.playTone(660, 0.1, 0.04, 0.055);
     this.pulseController(holder, 0.34, 55);
-    this.emitInteraction(`Cubo guardado no slot ${slot + 1}.`);
+    this.emitInteraction(`${item.label} guardada no slot ${slot + 1}.`);
   }
 
-  private retrieveStoredObject(holder: Holder) {
-    const slot = this.objectState.storedSlot;
-    if (slot === null) return;
-    const retrieved = retrieveObject(this.objectState, holder, slot);
-    if (retrieved === this.objectState) return;
-    this.captureGripRotation(holder);
-    this.objectState = retrieved;
-    this.runeCube.visible = true;
-    this.runeCube.scale.setScalar(1);
-    this.objectSleeping = false;
-    this.objectVelocity.set(0, 0, 0);
+  private retrieveStoredObject(holder: Holder, slot: number) {
+    const item = this.itemInSlot(slot);
+    if (!item || this.itemForHolder(holder)) return;
+    const retrieved = retrieveObject(item.state, holder, slot);
+    if (retrieved === item.state) return;
+    this.captureGripRotation(holder, item);
+    item.state = retrieved;
+    item.object.visible = true;
+    item.object.scale.setScalar(1);
+    item.sleeping = false;
+    item.velocity.set(0, 0, 0);
     this.poseHistory.set(holder, []);
     this.desktopBagOpenSeconds = 1.1;
     this.playTone(660, 0.07, 0.055);
     this.pulseController(holder, 0.28, 45);
-    this.emitInteraction(`Cubo retirado do slot ${slot + 1}.`);
+    this.emitInteraction(`${item.label} retirada do slot ${slot + 1}.`);
   }
 
   private toggleDesktopBag() {
@@ -965,18 +1284,21 @@ export class OpenDungeonEngine {
       this.toggleBagMenu();
       return;
     }
-    if (this.objectState.holder === 'desktop') {
-      this.storeHeldObject('desktop', 0);
+    const held = this.itemForHolder('desktop');
+    if (held) {
+      const slot = firstAvailableSlot(this.occupiedSlots(), BAG_SLOT_COUNT);
+      if (slot !== null) this.storeHeldObject('desktop', slot, held);
       return;
     }
-    if (this.objectState.storedSlot !== null) {
-      this.retrieveStoredObject('desktop');
+    const stored = Array.from(this.items.values()).find((item) => item.state.storedSlot !== null);
+    if (stored?.state.storedSlot !== null && stored?.state.storedSlot !== undefined) {
+      this.retrieveStoredObject('desktop', stored.state.storedSlot);
       return;
     }
     this.toggleBagMenu();
   }
 
-  private heldObjectPosition(holder: Holder) {
+  private heldObjectPosition(holder: Holder, item = this.cube) {
     if (holder === 'desktop') {
       this.camera.getWorldPosition(this.worldPosition);
       this.camera.getWorldQuaternion(this.worldQuaternion);
@@ -985,7 +1307,7 @@ export class OpenDungeonEngine {
         .add(this.worldPosition);
     }
     const controller = this.controllers.get(holder);
-    if (!controller) return this.runeCube.position.clone();
+    if (!controller) return item.object.position.clone();
     controller.getWorldPosition(this.worldPosition);
     controller.getWorldQuaternion(this.worldQuaternion);
     return new THREE.Vector3(0, 0, -0.1).applyQuaternion(this.worldQuaternion).add(this.worldPosition);
@@ -999,15 +1321,17 @@ export class OpenDungeonEngine {
   }
 
   private tryDesktopGrab() {
-    if (this.objectState.storedSlot !== null) {
-      this.emitInteraction('Pressione B para retirar o cubo da bolsa.');
+    if (this.itemForHolder('desktop')) return;
+    if (Array.from(this.items.values()).every((item) => item.state.storedSlot !== null || (item.id === 'key' && this.keyInserted))) {
+      this.emitInteraction('Abra a bolsa para retirar um item.');
       return;
     }
-    if (this.renderer.xr.isPresenting || !this.canDesktopGrab()) {
-      this.emitInteraction('Mire no cubo e aproxime-se para pegá-lo.');
+    const item = this.desktopGrabCandidate();
+    if (this.renderer.xr.isPresenting || !item) {
+      this.emitInteraction('Mire em um item para pegá-lo.');
       return;
     }
-    this.claimHeldObject('desktop');
+    this.claimHeldObject('desktop', item);
   }
 
   private tryControllerGrab(holder: 'left' | 'right') {
@@ -1015,42 +1339,33 @@ export class OpenDungeonEngine {
       this.toggleBagMenu(holder);
       return;
     }
-    if (this.objectState.storedSlot !== null) {
-      if (this.nearestBagSlot(holder) === this.objectState.storedSlot) {
-        this.retrieveStoredObject(holder);
-      } else {
-        this.emitInteraction('Aproxime a mão do slot iluminado da bolsa.');
-      }
+    if (this.itemForHolder(holder)) return;
+    const nearestSlot = this.nearestBagSlot(holder);
+    if (nearestSlot !== null && this.itemInSlot(nearestSlot)) {
+      this.retrieveStoredObject(holder, nearestSlot);
       return;
     }
-    const controller = this.controllers.get(holder);
-    if (!controller) return;
-    controller.getWorldPosition(this.worldPosition);
-    const directDistance = this.worldPosition.distanceTo(this.runeCube.position);
-    if (directDistance <= GRAB_DISTANCE) {
-      this.claimHeldObject(holder);
+    const candidate = this.controllerGrabCandidate(holder);
+    if (!candidate) {
+      this.emitInteraction('Aponte a mão para o cubo ou para a chave e pressione o gatilho.');
       return;
     }
-    const pullDistance = this.controllerRemoteGrabDistance(holder);
-    if (pullDistance === null) {
-      this.emitInteraction('Aponte a mão para o cubo e pressione o gatilho para puxá-lo.');
-      return;
-    }
-    this.claimHeldObject(holder, pullDistance);
+    this.claimHeldObject(holder, candidate.item, candidate.pullDistance);
   }
 
-  private claimHeldObject(holder: Holder, pullDistance?: number) {
-    const pullFromPosition = this.runeCube.position.clone();
-    const pullFromRotation = this.runeCube.quaternion.clone();
-    this.captureGripRotation(holder);
-    this.objectState = claimObject(this.objectState, holder);
-    this.runeCube.visible = true;
-    this.runeCube.scale.setScalar(1);
-    this.objectSleeping = false;
-    this.objectVelocity.set(0, 0, 0);
+  private claimHeldObject(holder: Holder, item = this.cube, pullDistance?: number) {
+    const pullFromPosition = item.object.position.clone();
+    const pullFromRotation = item.object.quaternion.clone();
+    this.captureGripRotation(holder, item);
+    item.state = claimObject(item.state, holder);
+    item.object.visible = true;
+    item.object.scale.setScalar(1);
+    item.sleeping = false;
+    item.velocity.set(0, 0, 0);
     this.poseHistory.set(holder, []);
     if ((holder === 'left' || holder === 'right') && pullDistance !== undefined) {
       this.pullAnimation = {
+        itemId: item.id,
         holder,
         fromPosition: pullFromPosition,
         fromRotation: pullFromRotation,
@@ -1060,74 +1375,82 @@ export class OpenDungeonEngine {
     }
     this.playTone(330, 0.07, 0.055);
     this.pulseController(holder, 0.26, 45);
-    this.emitInteraction(holder === 'desktop' ? 'Cubo pego · E solta, F arremessa.' : `Cubo pego pela mão ${holder}.`);
+    this.emitInteraction(holder === 'desktop'
+      ? `${item.label} em mãos · E solta, F arremessa.`
+      : `${item.label} na mão ${holder}.`);
   }
 
-  private captureGripRotation(holder: Holder) {
+  private captureGripRotation(holder: Holder, item = this.cube) {
     this.scene.updateMatrixWorld(true);
     const holderRotation = this.holderWorldRotation(holder);
     if (holderRotation) {
-      const objectRotation = this.runeCube.getWorldQuaternion(new THREE.Quaternion());
+      const objectRotation = item.object.getWorldQuaternion(new THREE.Quaternion());
       this.gripRotationOffsets.set(holder, captureGripRotationOffset(holderRotation, objectRotation));
     }
   }
 
-  private releaseHeldObject(holder: Holder, throwObject: boolean) {
-    if (this.objectState.holder !== holder) return;
-    const wasPulling = this.pullAnimation?.holder === holder;
+  private releaseHeldObject(holder: Holder, throwObject: boolean, item = this.itemForHolder(holder)) {
+    if (!item || item.state.holder !== holder) return;
+    const wasPulling = this.pullAnimation?.holder === holder && this.pullAnimation.itemId === item.id;
     if (wasPulling) this.pullAnimation = null;
     const shouldThrow = throwObject && !wasPulling;
-    const released = releaseObject(this.objectState, holder);
-    if (released === this.objectState) return;
-    this.objectState = released;
-    this.objectSleeping = false;
+    const released = releaseObject(item.state, holder);
+    if (released === item.state) return;
+    item.state = released;
+    item.sleeping = false;
 
     if (shouldThrow) {
       const velocity = computeThrowVelocity(this.poseHistory.get(holder) ?? []);
-      this.objectVelocity.set(velocity.x, velocity.y, velocity.z);
+      item.velocity.set(velocity.x, velocity.y, velocity.z);
       if (holder === 'desktop') {
         this.camera.getWorldDirection(this.worldPosition);
-        this.objectVelocity.copy(this.worldPosition.multiplyScalar(6.4));
-        this.objectVelocity.y += 1.15;
+        item.velocity.copy(this.worldPosition.multiplyScalar(6.4));
+        item.velocity.y += 1.15;
       }
     } else {
-      this.objectVelocity.set(0, 0, 0);
+      item.velocity.set(0, 0, 0);
     }
     this.poseHistory.set(holder, []);
     this.gripRotationOffsets.delete(holder);
     this.playTone(shouldThrow ? 210 : 260, 0.08, 0.045);
     this.pulseController(holder, shouldThrow ? 0.38 : 0.18, shouldThrow ? 65 : 35);
-    this.emitInteraction(shouldThrow ? 'Cubo lançado.' : 'Cubo solto.');
+    this.emitInteraction(shouldThrow ? `${item.label} lançado.` : `${item.label} solto.`);
   }
 
   private canDesktopGrab() {
-    if (this.objectState.holder || this.objectState.storedSlot !== null) return false;
+    return this.desktopGrabCandidate() !== null;
+  }
+
+  private desktopGrabCandidate() {
+    if (this.itemForHolder('desktop')) return null;
     this.scene.updateMatrixWorld(true);
     this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
-    const hit = this.raycaster.intersectObject(this.runeCube, false)[0];
-    return Boolean(hit && hit.distance <= DESKTOP_REACH);
+    let candidate: ItemRuntime | null = null;
+    let nearest = DESKTOP_REACH;
+    for (const item of this.items.values()) {
+      if (item.state.holder || item.state.storedSlot !== null || (item.id === 'key' && this.keyInserted)) continue;
+      const hit = this.raycaster.intersectObject(item.object, true)[0];
+      if (hit && hit.distance <= nearest) {
+        candidate = item;
+        nearest = hit.distance;
+      }
+    }
+    return candidate;
   }
 
   private anyControllerCanGrab() {
-    if (this.objectState.holder) return false;
-    if (this.objectState.storedSlot !== null) {
-      for (const holder of ['left', 'right'] as const) {
-        if (this.nearestBagSlot(holder) === this.objectState.storedSlot) return true;
-      }
-      return false;
-    }
-    for (const controller of this.controllers.values()) {
-      controller.getWorldPosition(this.worldPosition);
-      if (this.worldPosition.distanceTo(this.runeCube.position) <= GRAB_DISTANCE) return true;
-    }
     for (const holder of ['left', 'right'] as const) {
-      if (this.controllerRemoteGrabDistance(holder) !== null) return true;
+      const slot = this.nearestBagSlot(holder);
+      if (slot !== null && this.itemInSlot(slot)) return true;
+      if (!this.itemForHolder(holder) && this.controllerGrabCandidate(holder)) return true;
     }
     return false;
   }
 
   private resetObject(status: string) {
     this.objectState = { ...INITIAL_OBJECT_STATE };
+    const key = this.items.get('key')!;
+    key.state = { ...INITIAL_OBJECT_STATE };
     this.targetHits = 0;
     this.targetPulseSeconds = 0;
     this.objectSleeping = true;
@@ -1136,6 +1459,10 @@ export class OpenDungeonEngine {
     this.runeCube.rotation.set(0, Math.PI / 4, 0);
     this.runeCube.scale.setScalar(1);
     this.runeCube.visible = true;
+    this.resetItem(key);
+    this.keyInserted = false;
+    this.doorOpenAmount = 0;
+    this.door.position.y = 1.8;
     this.bagMenuOpen = false;
     this.bagOpenAmount = 0;
     this.bagMenu.visible = false;
@@ -1146,18 +1473,40 @@ export class OpenDungeonEngine {
     this.emitInteraction(status);
   }
 
+  private resetItem(item: ItemRuntime) {
+    item.state = { ...INITIAL_OBJECT_STATE };
+    item.sleeping = true;
+    item.velocity.set(0, 0, 0);
+    item.object.position.copy(item.home);
+    item.object.rotation.set(0.12, item.id === 'cube' ? Math.PI / 4 : 0.3, item.id === 'key' ? -0.08 : 0);
+    item.object.scale.setScalar(1);
+    item.object.visible = true;
+  }
+
   private emitInteraction(status: string) {
     const snapshot: InteractionSnapshot = {
       canGrab: this.renderer.xr.isPresenting ? this.anyControllerCanGrab() : this.canDesktopGrab(),
-      heldBy: this.objectState.holder,
-      storedSlot: this.objectState.storedSlot,
+      heldBy: Array.from(this.items.values()).find((item) => item.state.holder)?.state.holder ?? null,
+      storedSlot: Array.from(this.items.values()).find((item) => item.state.storedSlot !== null)?.state.storedSlot ?? null,
       targetHits: this.targetHits,
+      storedItemCount: this.occupiedSlots().length,
+      keyInserted: this.keyInserted,
+      doorOpen: !doorBlocksPassage(this.doorOpenAmount),
       status,
     };
     const signature = JSON.stringify(snapshot);
     if (signature === this.lastInteractionSignature) return;
     this.lastInteractionSignature = signature;
     this.options.onInteraction?.(snapshot);
+  }
+
+  private contextualStatus(fallback: string) {
+    if (this.keyInserted) return 'Passagem desbloqueada · atravesse a porta do portal.';
+    const held = Array.from(this.items.values()).find((item) => item.state.holder);
+    if (held) return `${held.label} segura · leve à cintura ou use no objetivo.`;
+    const storedCount = this.occupiedSlots().length;
+    if (storedCount > 0) return `${storedCount} item${storedCount === 1 ? '' : 's'} guardado${storedCount === 1 ? '' : 's'} na bolsa.`;
+    return fallback;
   }
 
   private playTone(frequency: number, duration: number, volume: number, delay = 0) {
@@ -1216,17 +1565,36 @@ export class OpenDungeonEngine {
     return source.getWorldQuaternion(new THREE.Quaternion());
   }
 
-  private controllerRemoteGrabDistance(holder: 'left' | 'right') {
+  private itemCanBeGrabbed(item: ItemRuntime) {
+    if (item.state.holder || item.state.storedSlot !== null || (item.id === 'key' && this.keyInserted)) return false;
+    if (!this.renderer.xr.isPresenting) return this.desktopGrabCandidate()?.id === item.id;
+    return (['left', 'right'] as const).some((holder) => this.controllerGrabDistance(holder, item) !== null);
+  }
+
+  private controllerGrabCandidate(holder: 'left' | 'right') {
+    let best: { item: ItemRuntime; pullDistance?: number; distance: number } | null = null;
+    for (const item of this.items.values()) {
+      if (item.state.holder || item.state.storedSlot !== null || (item.id === 'key' && this.keyInserted)) continue;
+      const distance = this.controllerGrabDistance(holder, item);
+      if (distance === null || (best && best.distance <= distance)) continue;
+      best = { item, distance, pullDistance: distance > GRAB_DISTANCE ? distance : undefined };
+    }
+    return best;
+  }
+
+  private controllerGrabDistance(holder: 'left' | 'right', item: ItemRuntime) {
     const controller = this.controllers.get(holder);
     if (!controller) return null;
     controller.getWorldPosition(this.handPosition);
+    const directDistance = this.handPosition.distanceTo(item.object.position);
+    if (directDistance <= GRAB_DISTANCE) return directDistance;
     controller.getWorldQuaternion(this.worldQuaternion);
     const forward = this.slotPosition.set(0, 0, -1).applyQuaternion(this.worldQuaternion);
     return remoteGrabDistance(
       this.handPosition,
       forward,
-      this.runeCube.position,
-      CUBE_RADIUS,
+      item.object.position,
+      item.radius,
       REMOTE_GRAB_DISTANCE,
     );
   }

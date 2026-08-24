@@ -18,6 +18,9 @@ export function GameShell() {
     heldBy: null,
     storedSlot: null,
     targetHits: 0,
+    storedItemCount: 0,
+    keyInserted: false,
+    doorOpen: false,
     status: 'Encontre o cubo rúnico sobre o pedestal.',
   });
 
@@ -52,7 +55,7 @@ export function GameShell() {
 
   const playDesktop = useCallback(() => {
     engineRef.current?.reset();
-    setNotice('Encontre o cubo rúnico, pegue-o e acerte o alvo ao fundo da sala.');
+    setNotice('Encontre a chave, use a bolsa e abra a passagem no portal.');
     setScreen('playing');
   }, []);
 
@@ -111,6 +114,7 @@ export function GameShell() {
             <span>01 · Mãos XR</span>
             <span>02 · Cubo físico</span>
             <span>03 · Bolsa de cintura</span>
+            <span>04 · Chave e passagem</span>
           </div>
           <p className="notice" role="status">{notice}</p>
         </section>
@@ -127,14 +131,14 @@ export function GameShell() {
             <span><kbd>E</kbd> pegar / soltar</span>
             <span><kbd>F</kbd> arremessar</span>
             <span><kbd>B</kbd> guardar / retirar</span>
-            <span><kbd>R</kbd> recuperar cubo</span>
+            <span><kbd>R</kbd> reiniciar itens</span>
             <span><kbd>H</kbd> hitboxes</span>
             <span><kbd>ESC</kbd> pausar</span>
           </aside>
           <aside className="objective-card" aria-label="Objetivo da sala">
-            <span>OBJETIVO D2.1</span>
-            <strong>{interaction.storedSlot !== null ? 'CUBO GUARDADO' : interaction.targetHits > 0 ? 'ALVO ATINGIDO' : 'USE A BOLSA'}</strong>
-            <small>{interaction.storedSlot !== null ? `Slot ${interaction.storedSlot + 1} ocupado` : interaction.heldBy ? 'Leve o cubo à cintura' : interaction.canGrab ? 'Cubo ao alcance' : 'Procure o pedestal'}</small>
+            <span>OBJETIVO D2.2</span>
+            <strong>{interaction.keyInserted ? 'PASSAGEM ABERTA' : interaction.storedItemCount > 0 ? 'ITENS GUARDADOS' : 'ENCONTRE A CHAVE'}</strong>
+            <small>{interaction.keyInserted ? 'Atravesse o portal' : interaction.storedItemCount > 0 ? `${interaction.storedItemCount} de 6 slots ocupados` : interaction.heldBy ? 'Guarde ou use o item' : interaction.canGrab ? 'Item sob a mira' : 'Procure os pedestais'}</small>
           </aside>
           <p className="play-notice" role="status">{interaction.status || notice}</p>
         </>
@@ -153,7 +157,7 @@ export function GameShell() {
         </section>
       )}
 
-      <footer className="build-label">BUILD D2.1 · LOCAL · {xrActive ? 'XR ATIVO' : 'DESKTOP'}</footer>
+      <footer className="build-label">BUILD D2.2 · LOCAL · {xrActive ? 'XR ATIVO' : 'DESKTOP'}</footer>
     </main>
   );
 }

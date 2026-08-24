@@ -17,6 +17,20 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D2 — Bolsa da aventura.
 
+## [0.4.0] — 2026-08-24
+
+### Adicionado
+
+- Chave de missão procedural com puxão assistido, pegada física, armazenamento e recuperação.
+- Inventário comporta cubo e chave simultaneamente em slots exclusivos, escolhendo o primeiro espaço livre ao guardar pela cintura.
+- Porta física no portal com fechadura, animação vertical, áudio e resposta háptica.
+- Chave só ativa a fechadura quando solta dentro do socket de 38 cm.
+- Hitbox da porta permanece bloqueando a passagem até a abertura visual atingir altura segura.
+
+### Alterado
+
+- Objetivo e HUD avançaram para D2.2, exibindo quantidade de itens guardados e estado da passagem.
+
 ## [0.3.4] — 2026-08-24
 
 ### Adicionado

@@ -123,6 +123,15 @@ O jogador pega um cubo rúnico, troca de mão, solta, arremessa em um alvo e rec
 - [x] Regras de armazenamento, slot inválido e retirada incorreta possuem testes headless.
 - [ ] Validar repetição prolongada, alcance sentado e ergonomia no Quest.
 
+### D2.2 — Chave e passagem
+
+- [x] Chave procedural compartilha puxão assistido, pegada estável e recuperação com o cubo.
+- [x] Cubo e chave ocupam slots exclusivos e podem permanecer guardados simultaneamente.
+- [x] Soltar a chave no socket físico desbloqueia e eleva a porta.
+- [x] Colisão da porta permanece ativa até existir vão seguro para passagem.
+- [x] Feedback visual, sonoro e háptico informa armazenamento, retirada e desbloqueio.
+- [ ] Homologar o ciclo completo no Meta Quest.
+
 ### Experiência
 
 O jogador abre a bolsa, guarda uma poção, uma chave e o cubo rúnico, fecha, caminha, reabre e recupera cada item. Usa a poção, abre uma fechadura com a chave e termina o pequeno desafio.
@@ -341,7 +350,7 @@ A etapa ativa é **D2 — Bolsa da aventura**. A D2.1 estabelece a ergonomia e a
 | --- | --- | --- |
 | D0 — Fundação | Concluída | `game/`; testes, lint, build e HTTP 200 em 24/08/2026 |
 | D1 — Mãos e objeto | Concluída | Grab, handoff, arremesso, alvo, recuperação e homologação inicial no Quest |
-| D2 — Bolsa e itens | Em andamento | D2.1: portal de cintura, menu 3×2 e armazenamento autoritativo do cubo |
+| D2 — Bolsa e itens | Em andamento | D2.2: inventário multi-item, chave de missão e porta física |
 | D3 — Combate estático | Não iniciada | — |
 | D4 — Primeiro inimigo | Não iniciada | — |
 | D5 — Sala completa | Não iniciada | — |

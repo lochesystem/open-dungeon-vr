@@ -48,6 +48,16 @@ test('waist portal chooses the first available inventory slot', () => {
   assert.equal(firstAvailableSlot([], 0), null);
 });
 
+test('cube and mission key keep exclusive slots while stored together', () => {
+  const cube = storeObject(claimObject(INITIAL_OBJECT_STATE, 'right'), 'right', 0, 6);
+  const keySlot = firstAvailableSlot([cube.storedSlot], 6);
+  const key = storeObject(claimObject(INITIAL_OBJECT_STATE, 'left'), 'left', keySlot, 6);
+
+  assert.equal(cube.storedSlot, 0);
+  assert.equal(key.storedSlot, 1);
+  assert.notEqual(cube.storedSlot, key.storedSlot);
+});
+
 test('throw velocity uses pose history and caps impossible spikes', () => {
   const velocity = computeThrowVelocity([
     { position: { x: 0, y: 1, z: 1 }, timeSeconds: 1 },
