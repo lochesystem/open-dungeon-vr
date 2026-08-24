@@ -10,6 +10,14 @@ import {
 
 type Screen = 'home' | 'playing' | 'paused';
 
+const ENEMY_STATE_LABEL = {
+  idle: 'OCIOSO',
+  patrol: 'PATRULHA',
+  alert: 'ALERTA',
+  chase: 'PERSEGUIÇÃO',
+  return: 'RETORNO',
+} as const;
+
 type ComfortControlsProps = {
   comfort: ComfortSettings;
   onChange: <Key extends keyof ComfortSettings>(key: Key, value: ComfortSettings[Key]) => void;
@@ -75,6 +83,8 @@ export function GameShell() {
     dummyHits: 0,
     blockedAttacks: 0,
     receivedAttacks: 0,
+    enemyState: 'idle',
+    enemyDistance: 0,
     status: 'Encontre a espada e derrote o boneco de treinamento.',
   });
 
@@ -118,7 +128,7 @@ export function GameShell() {
 
   const playDesktop = useCallback(() => {
     engineRef.current?.reset();
-    setNotice('Use a espada no boneco ou pegue o escudo à direita para treinar bloqueios direcionais.');
+    setNotice('Observe o Guardião Ossário patrulhar, perceber, perseguir e retornar ao posto.');
     setScreen('playing');
   }, []);
 
@@ -185,6 +195,7 @@ export function GameShell() {
             <span>05 · Poção e vida</span>
             <span>06 · Espada e treino</span>
             <span>07 · Escudo direcional</span>
+            <span>08 · IA do Guardião</span>
           </div>
           <p className="notice" role="status">{notice}</p>
         </section>
@@ -208,9 +219,9 @@ export function GameShell() {
             <span><kbd>ESC</kbd> pausar</span>
           </aside>
           <aside className="objective-card" aria-label="Objetivo da sala">
-            <span>OBJETIVO D3.3 · BLOQUEIOS {interaction.blockedAttacks}</span>
-            <strong>ESCUDO DIRECIONAL</strong>
-            <small>Face válida · erros {interaction.receivedAttacks} · golpes no boneco {interaction.dummyHits}</small>
+            <span>OBJETIVO D4.1 · IA A {interaction.enemyDistance.toFixed(1)} M</span>
+            <strong>{ENEMY_STATE_LABEL[interaction.enemyState]}</strong>
+            <small>Aproxime-se, afaste-se e observe o retorno à patrulha</small>
           </aside>
           <p className="play-notice" role="status">{interaction.status || notice}</p>
         </>
@@ -230,7 +241,7 @@ export function GameShell() {
         </section>
       )}
 
-      <footer className="build-label">BUILD D3.3.5 · LOCAL · {xrActive ? 'XR ATIVO' : 'DESKTOP'}</footer>
+      <footer className="build-label">BUILD D4.1 · LOCAL · {xrActive ? 'XR ATIVO' : 'DESKTOP'}</footer>
     </main>
   );
 }

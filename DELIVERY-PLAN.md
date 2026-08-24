@@ -288,6 +288,19 @@ O jogador retira espada e escudo, ataca um boneco, bloqueia um golpe mecânico, 
 
 ## 7. D4 — Primeiro inimigo completo
 
+### D4.1 — Blockout e inteligência de locomoção
+
+- [x] Guardião Ossário procedural possui hierarquia corporal preparada para animação.
+- [x] Estados idle, patrulha, alerta, perseguição e retorno são explícitos e reiniciáveis.
+- [x] Percepção usa alcance, atraso de reação e distância maior para perder o jogador.
+- [x] Patrulha percorre rota reproduzível no setor direito da sala.
+- [x] Movimento reutiliza os colliders precisos e testa desvios locais alternativos.
+- [x] Jogador e itens não atravessam o collider dinâmico do Guardião.
+- [x] Anel e HUD comunicam estado e distância sem painel grande dentro do VR.
+- [ ] Homologar velocidade, alcance de percepção e conforto da perseguição no Meta Quest.
+
+O blockout D4.1 é invulnerável e não ataca. D4.2 adicionará o primeiro ataque corpo a corpo e reação ao escudo sem antecipar vida, stagger, morte ou arte final.
+
 ### Experiência
 
 O jogador enfrenta o **Guardião Ossário** numa arena curta. O inimigo patrulha, percebe, aproxima, usa dois ataques, defende, reage a stagger, morre e deixa uma runa que pode ser guardada na bolsa.
@@ -445,7 +458,7 @@ O slice não começa do zero: ele amplia uma cadeia já jogável e homologada.
 
 ## 13. Ordem imediata
 
-A etapa ativa é **D3 — Laboratório de combate estático**. A D3.3 fecha o primeiro bloqueio direcional funcional; a próxima fatia adiciona uma janela temporal de parry sem transformar contato permanente em defesa perfeita.
+A etapa ativa é **D4 — Primeiro inimigo completo**. A D4.1 estabelece corpo procedural, patrulha, percepção, perseguição e retorno; a próxima fatia adiciona um ataque corpo a corpo simples e integração com o escudo já validado. Parry e stamina permanecem adiados para uma rodada posterior de refinamento do combate.
 
 ## 14. Registro de andamento
 
@@ -455,7 +468,7 @@ A etapa ativa é **D3 — Laboratório de combate estático**. A D3.3 fecha o pr
 | D1 — Mãos e objeto | Concluída | Grab, handoff, arremesso, alvo, recuperação e homologação inicial no Quest |
 | D2 — Bolsa e itens | Concluída | Bolsa 3×2, categorias, poção consumível, chave, recuperação e vida no pulso |
 | D3 — Combate estático | Em andamento | D3.3: espada livre, boneco imortal, escudo e bloqueio direcional |
-| D4 — Primeiro inimigo | Não iniciada | — |
+| D4 — Primeiro inimigo | Em andamento | D4.1: blockout, patrulha, percepção, perseguição e retorno |
 | D5 — Sala completa | Não iniciada | — |
 | D6 — Micro-expedição | Não iniciada | — |
 | D7 — Quest e conforto | Não iniciada | — |

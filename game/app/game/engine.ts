@@ -35,6 +35,7 @@ import { moveVrMenuSelection, vrPauseButtonPressed } from './vrPauseMenu';
 import { secondarySwordGripAnchor, swordGripAnchor, uprightSwordGripOffset } from './swordGrip';
 import { directionalShieldBlock } from './shieldCombat';
 import { heldShieldPosition, heldShieldRotation } from './shieldGrip';
+import { enemyStateLabel, enemyStepToward, nextEnemyState, type EnemyState } from './enemyAI';
 import { createVrSessionInit } from './xrSession';
 
 export type InteractionSnapshot = {
@@ -51,6 +52,8 @@ export type InteractionSnapshot = {
   dummyHits: number;
   blockedAttacks: number;
   receivedAttacks: number;
+  enemyState: EnemyState;
+  enemyDistance: number;
   status: string;
 };
 
@@ -101,6 +104,14 @@ const LOCK_POSITION = new THREE.Vector3(1.45, 1.18, -7.05);
 const TARGET_POSITION = new THREE.Vector3(3, 2, -4.8);
 const TARGET_RADIUS = 0.72;
 const DUMMY_POSITION = new THREE.Vector3(-3.05, 1.15, -2.8);
+const GUARDIAN_HOME = new THREE.Vector3(5.8, 0, -3.8);
+const GUARDIAN_RADIUS = 0.46;
+const GUARDIAN_PATROL = [
+  new THREE.Vector3(5.8, 0, -3.8),
+  new THREE.Vector3(8.3, 0, -5.7),
+  new THREE.Vector3(7.8, 0, -8.2),
+  new THREE.Vector3(4.8, 0, -7.2),
+] as const;
 const VR_PAUSE_MENU_ITEM_COUNT = 8;
 
 const PILLAR_COLLIDERS: BoxCollider[] = [-9.6, -6.4, 6.4, 9.6].flatMap((x) =>
@@ -276,6 +287,13 @@ export class OpenDungeonEngine {
   private readonly dummyMaterial: THREE.MeshStandardMaterial;
   private readonly trainingBolt: THREE.Mesh;
   private readonly trainingBoltMaterial: THREE.MeshStandardMaterial;
+  private readonly guardian: THREE.Group;
+  private readonly guardianBody: THREE.Group;
+  private readonly guardianLeftArm: THREE.Group;
+  private readonly guardianRightArm: THREE.Group;
+  private readonly guardianLeftLeg: THREE.Group;
+  private readonly guardianRightLeg: THREE.Group;
+  private readonly guardianStateMaterial: THREE.MeshBasicMaterial;
   private targetHits = 0;
   private targetPulseSeconds = 0;
   private lastInteractionSignature = '';
@@ -297,6 +315,11 @@ export class OpenDungeonEngine {
   private readonly shieldAttackOrigin = new THREE.Vector3();
   private readonly shieldAttackTarget = new THREE.Vector3();
   private readonly previousTrainingBoltPosition = new THREE.Vector3();
+  private enemyState: EnemyState = 'idle';
+  private enemyStateSeconds = 0;
+  private enemyPatrolIndex = 1;
+  private enemyDistance = Number.POSITIVE_INFINITY;
+  private enemyTravelSeconds = 0;
   private drinkProgress = 0;
   private hazardOccupied = false;
   private hazardPulseSeconds = 0;
@@ -381,6 +404,13 @@ export class OpenDungeonEngine {
     this.dummyMaterial = interactables.dummyMaterial;
     this.trainingBolt = interactables.trainingBolt;
     this.trainingBoltMaterial = interactables.trainingBoltMaterial;
+    this.guardian = interactables.guardian;
+    this.guardianBody = interactables.guardianBody;
+    this.guardianLeftArm = interactables.guardianLeftArm;
+    this.guardianRightArm = interactables.guardianRightArm;
+    this.guardianLeftLeg = interactables.guardianLeftLeg;
+    this.guardianRightLeg = interactables.guardianRightLeg;
+    this.guardianStateMaterial = interactables.guardianStateMaterial;
     this.bagMenuMaterial = this.basicMaterial({
       color: 0x102b28,
       transparent: true,
@@ -867,6 +897,81 @@ export class OpenDungeonEngine {
     trainingBolt.visible = false;
     this.scene.add(trainingBolt);
 
+    const boneMaterial = this.material({
+      color: 0xd7c9a6,
+      emissive: 0x31271a,
+      emissiveIntensity: 0.25,
+      roughness: 0.82,
+      metalness: 0.04,
+    });
+    const guardianArmor = this.material({
+      color: 0x314b49,
+      emissive: 0x0b2422,
+      emissiveIntensity: 0.55,
+      roughness: 0.5,
+      metalness: 0.58,
+    });
+    const guardian = new THREE.Group();
+    guardian.name = 'ossuary-guardian-blockout';
+    guardian.position.copy(GUARDIAN_HOME);
+    const guardianBody = new THREE.Group();
+    guardianBody.name = 'guardian-body-pivot';
+    const pelvis = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.46, 0.28, 0.3)), guardianArmor);
+    pelvis.position.y = 0.83;
+    const torso = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.72, 0.72, 0.36)), guardianArmor);
+    torso.position.y = 1.25;
+    const ribRune = new THREE.Mesh(this.geometry(new THREE.OctahedronGeometry(0.12, 0)), rune);
+    ribRune.position.set(0, 1.27, 0.23);
+    const guardianNeck = new THREE.Mesh(this.geometry(new THREE.CylinderGeometry(0.08, 0.1, 0.2, 10)), boneMaterial);
+    guardianNeck.position.y = 1.7;
+    const head = new THREE.Mesh(this.geometry(new THREE.DodecahedronGeometry(0.24, 0)), boneMaterial);
+    head.position.y = 1.94;
+    const eyeMaterial = this.basicMaterial({ color: 0xff9f45, toneMapped: false });
+    for (const x of [-0.085, 0.085]) {
+      const eye = new THREE.Mesh(this.geometry(new THREE.SphereGeometry(0.027, 8, 6)), eyeMaterial);
+      eye.position.set(x, 1.98, 0.215);
+      guardianBody.add(eye);
+    }
+    guardianBody.add(pelvis, torso, ribRune, guardianNeck, head);
+    const limbGeometry = this.geometry(new THREE.CylinderGeometry(0.075, 0.095, 0.68, 10));
+    const bootGeometry = this.geometry(new THREE.BoxGeometry(0.18, 0.16, 0.3));
+    const guardianLeftArm = new THREE.Group();
+    const guardianRightArm = new THREE.Group();
+    const guardianLeftLeg = new THREE.Group();
+    const guardianRightLeg = new THREE.Group();
+    for (const [limb, x, y, isArm] of [
+      [guardianLeftArm, -0.46, 1.53, true],
+      [guardianRightArm, 0.46, 1.53, true],
+      [guardianLeftLeg, -0.18, 0.78, false],
+      [guardianRightLeg, 0.18, 0.78, false],
+    ] as const) {
+      limb.position.set(x, y, 0);
+      const segment = new THREE.Mesh(limbGeometry, boneMaterial);
+      segment.position.y = -0.32;
+      limb.add(segment);
+      if (!isArm) {
+        const boot = new THREE.Mesh(bootGeometry, guardianArmor);
+        boot.position.set(0, -0.7, 0.07);
+        limb.add(boot);
+      }
+      guardianBody.add(limb);
+    }
+    const guardianStateMaterial = this.basicMaterial({
+      color: 0x6de7bf,
+      transparent: true,
+      opacity: 0.72,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const guardianStateRing = new THREE.Mesh(
+      this.geometry(new THREE.RingGeometry(0.54, 0.61, 32)),
+      guardianStateMaterial,
+    );
+    guardianStateRing.rotation.x = -Math.PI / 2;
+    guardianStateRing.position.y = 0.025;
+    guardian.add(guardianBody, guardianStateRing);
+    this.scene.add(guardian);
+
     const hazardMaterial = this.material({
       color: 0xd14b55,
       emissive: 0x8f1027,
@@ -942,6 +1047,13 @@ export class OpenDungeonEngine {
       shieldMaterial,
       trainingBolt,
       trainingBoltMaterial,
+      guardian,
+      guardianBody,
+      guardianLeftArm,
+      guardianRightArm,
+      guardianLeftLeg,
+      guardianRightLeg,
+      guardianStateMaterial,
       hazardMaterial,
       door,
       lockSocket,
@@ -1283,6 +1395,7 @@ export class OpenDungeonEngine {
     this.updateWristHealth();
     this.updateBagTransform(delta);
     this.updateDoor(delta);
+    this.updateGuardian(delta, resolved);
     this.updateAdventureObject(delta, nowSeconds);
   }
 
@@ -1315,10 +1428,18 @@ export class OpenDungeonEngine {
     });
   }
 
-  private activeColliders() {
-    return doorBlocksPassage(this.doorOpenAmount)
+  private activeColliders(includeGuardian = true) {
+    const colliders = doorBlocksPassage(this.doorOpenAmount)
       ? [...ROOM_COLLIDERS, LOCKED_DOOR_COLLIDER]
       : ROOM_COLLIDERS;
+    if (!includeGuardian) return colliders;
+    return [...colliders, {
+      kind: 'circle' as const,
+      id: 'ossuary-guardian',
+      x: this.guardian.position.x,
+      z: this.guardian.position.z,
+      radius: GUARDIAN_RADIUS,
+    }];
   }
 
   private updateDoor(delta: number) {
@@ -1327,6 +1448,90 @@ export class OpenDungeonEngine {
     this.doorOpenAmount += (target - this.doorOpenAmount) * blend;
     this.door.position.y = 1.8 + this.doorOpenAmount * 4.2;
     if (this.doorColliderDebug) this.doorColliderDebug.visible = doorBlocksPassage(this.doorOpenAmount);
+  }
+
+  private updateGuardian(delta: number, player: { x: number; z: number }) {
+    const current = { x: this.guardian.position.x, z: this.guardian.position.z };
+    this.enemyDistance = Math.hypot(player.x - current.x, player.z - current.z);
+    this.enemyStateSeconds += delta;
+    const reachedHome = Math.hypot(current.x - GUARDIAN_HOME.x, current.z - GUARDIAN_HOME.z) <= 0.42;
+    const nextState = nextEnemyState(this.enemyState, this.enemyDistance, this.enemyStateSeconds, reachedHome);
+    if (nextState !== this.enemyState) {
+      this.enemyState = nextState;
+      this.enemyStateSeconds = 0;
+      const frequency = nextState === 'alert' ? 510 : nextState === 'chase' ? 260 : 340;
+      this.playTone(frequency, 0.09, 0.035);
+      this.emitInteraction(`Guardião Ossário · ${enemyStateLabel(nextState).toLowerCase()}.`);
+    }
+
+    let target: THREE.Vector3 | null = null;
+    let speed = 0;
+    if (this.enemyState === 'patrol') {
+      target = GUARDIAN_PATROL[this.enemyPatrolIndex];
+      if (Math.hypot(target.x - current.x, target.z - current.z) <= 0.4) {
+        this.enemyPatrolIndex = (this.enemyPatrolIndex + 1) % GUARDIAN_PATROL.length;
+        target = GUARDIAN_PATROL[this.enemyPatrolIndex];
+      }
+      speed = 1.05;
+    } else if (this.enemyState === 'chase' && this.enemyDistance > 1.35) {
+      target = new THREE.Vector3(player.x, 0, player.z);
+      speed = 1.8;
+    } else if (this.enemyState === 'return') {
+      target = GUARDIAN_HOME;
+      speed = 1.35;
+    }
+
+    let travelled = 0;
+    if (target && delta > 0) {
+      const baseStep = enemyStepToward(current, target, speed * delta);
+      const baseAngle = Math.atan2(baseStep.z, baseStep.x);
+      let best = current;
+      let bestScore = Number.POSITIVE_INFINITY;
+      for (const angleOffset of [0, 0.5, -0.5, 0.95, -0.95]) {
+        const stepLength = Math.hypot(baseStep.x, baseStep.z);
+        const step = {
+          x: Math.cos(baseAngle + angleOffset) * stepLength,
+          z: Math.sin(baseAngle + angleOffset) * stepLength,
+        };
+        const candidate = resolveMovement(current, step, GUARDIAN_RADIUS, this.activeColliders(false), ROOM_BOUNDS);
+        const progressScore = Math.hypot(target.x - candidate.x, target.z - candidate.z) + Math.abs(angleOffset) * 0.015;
+        if (progressScore < bestScore) {
+          best = candidate;
+          bestScore = progressScore;
+        }
+      }
+      travelled = Math.hypot(best.x - current.x, best.z - current.z);
+      this.guardian.position.set(best.x, 0, best.z);
+      if (travelled > 1e-4) {
+        const desiredYaw = Math.atan2(best.x - current.x, best.z - current.z);
+        const yawDelta = Math.atan2(
+          Math.sin(desiredYaw - this.guardian.rotation.y),
+          Math.cos(desiredYaw - this.guardian.rotation.y),
+        );
+        this.guardian.rotation.y += yawDelta * (1 - Math.exp(-8 * delta));
+      }
+    }
+
+    if (travelled > 1e-4) this.enemyTravelSeconds += travelled * 3.4;
+    const stride = travelled > 1e-4 ? Math.sin(this.enemyTravelSeconds * 4.2) * 0.48 : 0;
+    const animationBlend = 1 - Math.exp(-10 * delta);
+    this.guardianLeftLeg.rotation.x += (stride - this.guardianLeftLeg.rotation.x) * animationBlend;
+    this.guardianRightLeg.rotation.x += (-stride - this.guardianRightLeg.rotation.x) * animationBlend;
+    this.guardianLeftArm.rotation.x += (-stride * 0.72 - this.guardianLeftArm.rotation.x) * animationBlend;
+    this.guardianRightArm.rotation.x += (stride * 0.72 - this.guardianRightArm.rotation.x) * animationBlend;
+    const alertLean = this.enemyState === 'alert' ? 0.08 : this.enemyState === 'chase' ? 0.05 : 0;
+    this.guardianBody.rotation.x += (alertLean - this.guardianBody.rotation.x) * animationBlend;
+    this.guardianBody.position.y = Math.sin(this.animationSeconds * (travelled > 0 ? 8 : 2.1)) * (travelled > 0 ? 0.025 : 0.012);
+
+    const stateColor = {
+      idle: 0x6de7bf,
+      patrol: 0x6db8e7,
+      alert: 0xffc15c,
+      chase: 0xff5b55,
+      return: 0xa98ee8,
+    }[this.enemyState];
+    this.guardianStateMaterial.color.setHex(stateColor);
+    this.guardianStateMaterial.opacity = this.enemyState === 'alert' ? 0.95 : 0.7;
   }
 
   private updateAdventureObject(delta: number, nowSeconds: number) {
@@ -2476,6 +2681,19 @@ export class OpenDungeonEngine {
     this.trainingBolt.scale.setScalar(1);
     this.trainingBoltMaterial.emissive.setHex(0xe34a24);
     this.trainingBoltMaterial.emissiveIntensity = 3.6;
+    this.enemyState = 'idle';
+    this.enemyStateSeconds = 0;
+    this.enemyPatrolIndex = 1;
+    this.enemyDistance = Number.POSITIVE_INFINITY;
+    this.enemyTravelSeconds = 0;
+    this.guardian.position.copy(GUARDIAN_HOME);
+    this.guardian.rotation.set(0, 0, 0);
+    this.guardianBody.position.set(0, 0, 0);
+    this.guardianBody.rotation.set(0, 0, 0);
+    this.guardianLeftArm.rotation.set(0, 0, 0);
+    this.guardianRightArm.rotation.set(0, 0, 0);
+    this.guardianLeftLeg.rotation.set(0, 0, 0);
+    this.guardianRightLeg.rotation.set(0, 0, 0);
     this.hazardOccupied = false;
     this.hazardPulseSeconds = 0;
     this.doorOpenAmount = 0;
@@ -2548,6 +2766,8 @@ export class OpenDungeonEngine {
       dummyHits: this.dummyHits,
       blockedAttacks: this.blockedAttacks,
       receivedAttacks: this.receivedAttacks,
+      enemyState: this.enemyState,
+      enemyDistance: Number.isFinite(this.enemyDistance) ? Math.round(this.enemyDistance * 10) / 10 : 0,
       status,
     };
     const signature = JSON.stringify(snapshot);

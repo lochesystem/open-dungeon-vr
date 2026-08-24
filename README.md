@@ -11,7 +11,7 @@ Documentos do projeto:
 
 ## Estado
 
-- D0, D1 e D2 concluídas; D3.3 adiciona escudo e bloqueio direcional ao treino de espada livre
+- D0, D1 e D2 concluídas; D3 possui espada e escudo; D4.1 inicia o Guardião Ossário funcional
 - Portal discreto na cintura: solte um item sobre o anel para guardar automaticamente; `X` esquerdo ou `A` direito abre o menu conforme a mão dominante
 - Nome de trabalho: **Open Dungeon VR**
 - Produção: **FULL IA**, com aprovação visual e de produto pelo usuário
@@ -44,6 +44,7 @@ Após sofrer dano na runa, leve a poção à boca, incline o frasco e mantenha a
 Se um item sair dos limites da sala, ele retorna ao último slot válido; se isso não for possível, usa outro slot livre ou volta ao pedestal.
 Para o treino D3.2, puxe a espada da lateral esquerda e atravesse o volume do boneco com golpes rápidos e deliberados. O boneco é imortal e contabiliza os acertos indefinidamente. Ao puxar à distância ou retirar da bolsa, a espada encaixa pelo punho com a lâmina ereta e o fio apontado para a frente; ao alcançá-la diretamente, pegue qualquer trecho para escolher livremente ponto e ângulo. Mantenha o gatilho da outra mão sobre um segundo trecho para manipulação bimanual. No desktop, segure a espada, aproxime-se e pressione `J`.
 Para o treino D3.3, puxe o escudo do suporte à direita. Ele encaixa automaticamente pela alça, apoiado no lado externo da mão — com poses espelhadas para esquerda e direita — e com a alça alinhada do punho aos dedos; depois disso, o pulso orienta a defesa normalmente. Um projétil anuncia o ataque antes de avançar: coloque o disco no caminho e mantenha a face decorada voltada para a origem. Contato pelo verso, fora do raio ou em ângulo rasante não bloqueia. Os ataques são não letais e o ciclo continua enquanto o escudo estiver equipado.
+Na D4.1, o Guardião Ossário patrulha o setor direito. Aproxime-se para iniciar alerta e perseguição; afaste-se além do alcance para fazê-lo retornar ao posto e retomar a patrulha. O anel nos pés e o HUD mostram o estado atual. Nesta fatia o blockout é invulnerável e ainda não ataca.
 
 ## Meta Quest pelo GitHub Pages
 

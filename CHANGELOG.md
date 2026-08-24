@@ -17,6 +17,24 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D3 — Laboratório de combate estático.
 
+## [0.11.0] — 2026-08-24
+
+### Adicionado
+
+- Primeiro blockout procedural do Guardião Ossário, com hierarquia corporal separada para tronco, braços e pernas.
+- Máquina de estados `idle`, patrulha, alerta, perseguição e retorno ao posto.
+- Percepção por distância com intervalo de reação e histerese para evitar alternância nervosa.
+- Rota de patrulha no setor direito e perseguição com desvio local entre múltiplas direções candidatas.
+- Collider dinâmico do inimigo para jogador e itens, usando a mesma resolução precisa da sala.
+- Animações procedurais distintas para respiração, caminhada, alerta, perseguição e retorno.
+- Anel de estado e HUD com estado atual e distância do jogador.
+
+### Validado
+
+- Testes cobrem aquisição, atraso de percepção, perda do jogador, retorno e passo sem ultrapassar o destino.
+- Revisão visual confirmou escala, posição, leitura da patrulha e ausência de erros no console.
+- Suíte ampliada para 62 testes.
+
 ## [0.10.5] — 2026-08-24
 
 ### Corrigido
