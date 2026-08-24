@@ -4,7 +4,7 @@ import { createVrSessionInit } from '../app/game/xrSession.ts';
 
 test('requests every feature required by the Three.js WebXR render path', () => {
   const options = createVrSessionInit();
-  assert.deepEqual(options.optionalFeatures, ['local-floor', 'bounded-floor', 'layers']);
+  assert.deepEqual(options.optionalFeatures, ['local-floor', 'bounded-floor', 'hand-tracking']);
 });
 
 test('returns a new mutable feature list for every session attempt', () => {

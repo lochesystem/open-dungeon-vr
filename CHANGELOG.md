@@ -17,6 +17,19 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D2 — Bolsa da aventura.
 
+## [0.2.3] — 2026-08-24
+
+### Corrigido
+
+- Ciclo de entrada WebXR alinhado aos projetos `f-zone-vr` e `aurora-wilds-VR`, já homologados no Meta Quest.
+- Origem do jogador reinicializada no evento real de início da sessão, evitando câmera XR fora da sala.
+- Sessão voltou ao caminho WebXR padrão do Quest, sem forçar `layers`, e agora solicita rastreamento de mãos apenas como recurso opcional.
+- Renderizador usa configuração própria para Quest, com antialiasing desativado, framebuffer reduzido e foveação alta.
+
+### Validado
+
+- Configuração da sessão coberta por teste automatizado e comparada com os dois projetos VR funcionais do workspace.
+
 ## [0.2.2] — 2026-08-24
 
 ### Corrigido

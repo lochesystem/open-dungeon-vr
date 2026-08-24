@@ -131,16 +131,23 @@ export class OpenDungeonEngine {
   private xrTurnLatched = false;
   private paused = false;
   private disposed = false;
+  private readonly quest: boolean;
 
   constructor(container: HTMLElement, options: EngineOptions = {}) {
     this.options = options;
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    this.quest = /OculusBrowser|Meta Quest/i.test(navigator.userAgent);
+    this.renderer = new THREE.WebGLRenderer({
+      antialias: !this.quest,
+      alpha: false,
+      powerPreference: 'high-performance',
+    });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.quest ? 1 : 1.5));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
     this.renderer.xr.enabled = true;
     this.renderer.xr.setReferenceSpaceType('local-floor');
+    this.renderer.xr.setFramebufferScaleFactor(0.78);
     this.renderer.domElement.className = 'game-canvas';
     this.renderer.domElement.setAttribute('aria-label', 'Sala tridimensional da fundação de Open Dungeon VR');
     container.appendChild(this.renderer.domElement);
@@ -163,6 +170,8 @@ export class OpenDungeonEngine {
     window.addEventListener('resize', this.resize);
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
+    this.renderer.xr.addEventListener('sessionstart', this.onXrSessionStart);
+    this.renderer.xr.addEventListener('sessionend', this.onXrSessionEnd);
     this.renderer.setAnimationLoop(this.render);
     this.emitInteraction('Aproxime-se do cubo rúnico e mire nele para pegar.');
   }
@@ -173,6 +182,11 @@ export class OpenDungeonEngine {
   }
 
   reset() {
+    this.resetPlayerTransform();
+    this.resetObject('Cubo e alvo restaurados.');
+  }
+
+  private resetPlayerTransform() {
     this.playerRig.position.set(0, 0, 6.8);
     this.playerRig.rotation.set(0, 0, 0);
     this.camera.position.set(0, PLAYER_HEIGHT, 0);
@@ -180,7 +194,6 @@ export class OpenDungeonEngine {
     this.xrTurnLatched = false;
     this.camera.rotation.set(0, 0, 0);
     this.lastFrameSeconds = 0;
-    this.resetObject('Cubo e alvo restaurados.');
   }
 
   async enterVr() {
@@ -188,10 +201,9 @@ export class OpenDungeonEngine {
     const supported = await navigator.xr.isSessionSupported('immersive-vr');
     if (!supported) throw new Error('Headset WebXR não encontrado.');
 
+    this.resetPlayerTransform();
     const session = await navigator.xr.requestSession('immersive-vr', createVrSessionInit());
-    session.addEventListener('end', () => this.options.onXrChange?.(false), { once: true });
     await this.renderer.xr.setSession(session);
-    this.options.onXrChange?.(true);
   }
 
   async exitVr() {
@@ -206,6 +218,8 @@ export class OpenDungeonEngine {
     window.removeEventListener('resize', this.resize);
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);
+    this.renderer.xr.removeEventListener('sessionstart', this.onXrSessionStart);
+    this.renderer.xr.removeEventListener('sessionend', this.onXrSessionEnd);
     for (const listener of this.controllerListeners) {
       listener.controller.removeEventListener('selectstart', listener.start);
       listener.controller.removeEventListener('selectend', listener.end);
@@ -216,6 +230,20 @@ export class OpenDungeonEngine {
     void this.audioContext?.close();
     this.renderer.domElement.remove();
   }
+
+  private readonly onXrSessionStart = () => {
+    this.resetPlayerTransform();
+    this.renderer.setPixelRatio(1);
+    this.renderer.xr.setFoveation(0.9);
+    this.options.onXrChange?.(true);
+  };
+
+  private readonly onXrSessionEnd = () => {
+    this.resetPlayerTransform();
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.quest ? 1 : 1.5));
+    this.resize();
+    this.options.onXrChange?.(false);
+  };
 
   private material(parameters: THREE.MeshStandardMaterialParameters) {
     const material = new THREE.MeshStandardMaterial(parameters);

@@ -1,7 +1,7 @@
 export const XR_OPTIONAL_FEATURES = [
   'local-floor',
   'bounded-floor',
-  'layers',
+  'hand-tracking',
 ] as const;
 
 export function createVrSessionInit(): XRSessionInit {
