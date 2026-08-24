@@ -8,6 +8,7 @@ import {
   resolvePosition,
 } from './collision';
 import { applyDeadzone, clampFrameDelta, movementVelocity, rigPositionForTrackedSpawn } from './motion';
+import { captureGripRotationOffset, heldObjectRotation } from './grip';
 import {
   INITIAL_OBJECT_STATE,
   type AdventureObjectState,
@@ -122,6 +123,7 @@ export class OpenDungeonEngine {
   private readonly raycaster = new THREE.Raycaster();
   private readonly controllers = new Map<Holder, THREE.Group>();
   private readonly poseHistory = new Map<Holder, PoseSample[]>();
+  private readonly gripRotationOffsets = new Map<Holder, THREE.Quaternion>();
   private readonly controllerListeners: Array<{ controller: THREE.Group; start: () => void; end: () => void }> = [];
   private readonly adventureBag = new THREE.Group();
   private readonly bagMenu = new THREE.Group();
@@ -711,10 +713,14 @@ export class OpenDungeonEngine {
     if (this.objectState.holder) {
       const heldPosition = this.heldObjectPosition(this.objectState.holder);
       this.runeCube.position.copy(heldPosition);
-      this.runeCube.rotation.x += delta * 1.2;
-      this.runeCube.rotation.y += delta * 1.7;
+      const holder = this.objectState.holder;
+      const holderRotation = this.holderWorldRotation(holder);
+      const gripOffset = this.gripRotationOffsets.get(holder);
+      if (holderRotation && gripOffset) {
+        this.runeCube.quaternion.copy(heldObjectRotation(holderRotation, gripOffset));
+      }
       this.objectVelocity.set(0, 0, 0);
-      this.recordPose(this.objectState.holder, heldPosition, nowSeconds);
+      this.recordPose(holder, heldPosition, nowSeconds);
       this.cubeMaterial.emissiveIntensity = 2.6;
       this.emitInteraction(`Cubo seguro pela mão ${this.objectState.holder === 'desktop' ? 'virtual' : this.objectState.holder}.`);
       return;
@@ -902,6 +908,7 @@ export class OpenDungeonEngine {
     this.objectSleeping = true;
     this.objectVelocity.set(0, 0, 0);
     this.poseHistory.set(holder, []);
+    this.gripRotationOffsets.delete(holder);
     this.desktopBagOpenSeconds = 1.3;
     this.playTone(440, 0.08, 0.055);
     this.playTone(660, 0.1, 0.04, 0.055);
@@ -914,6 +921,7 @@ export class OpenDungeonEngine {
     if (slot === null) return;
     const retrieved = retrieveObject(this.objectState, holder, slot);
     if (retrieved === this.objectState) return;
+    this.captureGripRotation(holder);
     this.objectState = retrieved;
     this.runeCube.visible = true;
     this.runeCube.scale.setScalar(1);
@@ -1001,6 +1009,7 @@ export class OpenDungeonEngine {
   }
 
   private claimHeldObject(holder: Holder) {
+    this.captureGripRotation(holder);
     this.objectState = claimObject(this.objectState, holder);
     this.runeCube.visible = true;
     this.runeCube.scale.setScalar(1);
@@ -1010,6 +1019,15 @@ export class OpenDungeonEngine {
     this.playTone(330, 0.07, 0.055);
     this.pulseController(holder, 0.26, 45);
     this.emitInteraction(holder === 'desktop' ? 'Cubo pego · E solta, F arremessa.' : `Cubo pego pela mão ${holder}.`);
+  }
+
+  private captureGripRotation(holder: Holder) {
+    this.scene.updateMatrixWorld(true);
+    const holderRotation = this.holderWorldRotation(holder);
+    if (holderRotation) {
+      const objectRotation = this.runeCube.getWorldQuaternion(new THREE.Quaternion());
+      this.gripRotationOffsets.set(holder, captureGripRotationOffset(holderRotation, objectRotation));
+    }
   }
 
   private releaseHeldObject(holder: Holder, throwObject: boolean) {
@@ -1031,6 +1049,7 @@ export class OpenDungeonEngine {
       this.objectVelocity.set(0, 0, 0);
     }
     this.poseHistory.set(holder, []);
+    this.gripRotationOffsets.delete(holder);
     this.playTone(throwObject ? 210 : 260, 0.08, 0.045);
     this.pulseController(holder, throwObject ? 0.38 : 0.18, throwObject ? 65 : 35);
     this.emitInteraction(throwObject ? 'Cubo lançado.' : 'Cubo solto.');
@@ -1074,6 +1093,7 @@ export class OpenDungeonEngine {
     this.bagMenu.visible = false;
     this.targetCore.scale.setScalar(1);
     this.poseHistory.forEach((history) => history.splice(0));
+    this.gripRotationOffsets.clear();
     this.emitInteraction(status);
   }
 
@@ -1139,5 +1159,11 @@ export class OpenDungeonEngine {
   private readStick(axes: readonly number[]): [number, number] {
     const offset = axes.length >= 4 ? 2 : 0;
     return [applyDeadzone(axes[offset] ?? 0), applyDeadzone(axes[offset + 1] ?? 0)];
+  }
+
+  private holderWorldRotation(holder: Holder) {
+    const source = holder === 'desktop' ? this.camera : this.controllers.get(holder);
+    if (!source) return null;
+    return source.getWorldQuaternion(new THREE.Quaternion());
   }
 }

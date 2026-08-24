@@ -17,6 +17,13 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D2 — Bolsa da aventura.
 
+## [0.3.3] — 2026-08-24
+
+### Corrigido
+
+- Cubo não gira mais artificialmente enquanto está segurado.
+- Orientação inicial da pegada é preservada e passa a acompanhar somente a rotação real da mão ou da câmera desktop.
+
 ## [0.3.2] — 2026-08-24
 
 ### Adicionado
