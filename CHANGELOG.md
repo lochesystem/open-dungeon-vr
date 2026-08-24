@@ -15,7 +15,20 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 ### Planejado
 
 - Homologação prolongada da D1 no Quest.
-- D2 — Bolsa da aventura.
+- D3 — Laboratório de combate estático.
+
+## [0.6.0] — 2026-08-24
+
+### Adicionado
+
+- Painel de conforto antes da entrada em VR e na pausa, com postura em pé/sentado, altura da cintura e distância do inventário.
+- Seleção de mão dominante: `X` na esquerda ou `A` na direita abre a bolsa.
+- Modo de uma mão concentra locomoção, pegada e inventário no controle dominante.
+- Recuperação de item perdido no último slot válido, com fallback para o primeiro slot livre ou pedestal.
+
+### Validado
+
+- Suíte ampliada para 38 testes, incluindo 100 ciclos consecutivos de armazenamento e retirada sem duplicação ou perda de autoridade.
 
 ## [0.5.1] — 2026-08-24
 

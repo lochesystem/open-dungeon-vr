@@ -47,6 +47,21 @@ export function firstAvailableSlot(
   return null;
 }
 
+export function preferredRecoverySlot(
+  preferredSlot: number | null,
+  occupiedSlots: readonly number[],
+  slotCount: number,
+): number | null {
+  if (
+    preferredSlot !== null
+    && Number.isInteger(preferredSlot)
+    && preferredSlot >= 0
+    && preferredSlot < slotCount
+    && !occupiedSlots.includes(preferredSlot)
+  ) return preferredSlot;
+  return firstAvailableSlot(occupiedSlots, slotCount);
+}
+
 export function retrieveObject(
   state: AdventureObjectState,
   holder: Holder,

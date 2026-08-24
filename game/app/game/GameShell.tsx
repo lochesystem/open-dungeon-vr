@@ -1,9 +1,56 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { OpenDungeonEngine, type InteractionSnapshot } from './engine';
+import {
+  DEFAULT_COMFORT_SETTINGS,
+  OpenDungeonEngine,
+  type ComfortSettings,
+  type InteractionSnapshot,
+} from './engine';
 
 type Screen = 'home' | 'playing' | 'paused';
+
+type ComfortControlsProps = {
+  comfort: ComfortSettings;
+  onChange: <Key extends keyof ComfortSettings>(key: Key, value: ComfortSettings[Key]) => void;
+};
+
+function ComfortControls({ comfort, onChange }: ComfortControlsProps) {
+  return (
+    <div className="comfort-panel" aria-label="Configurações de conforto">
+      <div className="comfort-row">
+        <span>Postura</span>
+        <div className="comfort-options">
+          <button className={comfort.posture === 'standing' ? 'active' : ''} onClick={() => onChange('posture', 'standing')}>Em pé</button>
+          <button className={comfort.posture === 'seated' ? 'active' : ''} onClick={() => onChange('posture', 'seated')}>Sentado</button>
+        </div>
+      </div>
+      <div className="comfort-row">
+        <span>Mão dominante</span>
+        <div className="comfort-options">
+          <button className={comfort.dominantHand === 'left' ? 'active' : ''} onClick={() => onChange('dominantHand', 'left')}>Esquerda · X</button>
+          <button className={comfort.dominantHand === 'right' ? 'active' : ''} onClick={() => onChange('dominantHand', 'right')}>Direita · A</button>
+        </div>
+      </div>
+      <div className="comfort-row">
+        <span>Controles</span>
+        <div className="comfort-options">
+          <button className={!comfort.oneHandMode ? 'active' : ''} onClick={() => onChange('oneHandMode', false)}>Duas mãos</button>
+          <button className={comfort.oneHandMode ? 'active' : ''} onClick={() => onChange('oneHandMode', true)}>Uma mão</button>
+        </div>
+      </div>
+      <label className="comfort-slider">
+        <span>Altura da cintura <output>{Math.round(comfort.waistOffset * 100)} cm</output></span>
+        <input type="range" min="-0.2" max="0.2" step="0.02" value={comfort.waistOffset} onChange={(event) => onChange('waistOffset', Number(event.target.value))} />
+      </label>
+      <label className="comfort-slider">
+        <span>Distância do menu <output>{Math.round(comfort.menuDistance * 100)} cm</output></span>
+        <input type="range" min="0.42" max="0.72" step="0.02" value={comfort.menuDistance} onChange={(event) => onChange('menuDistance', Number(event.target.value))} />
+      </label>
+      <small>A bolsa abre com {comfort.dominantHand === 'left' ? 'X na mão esquerda' : 'A na mão direita'}.</small>
+    </div>
+  );
+}
 
 export function GameShell() {
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -13,6 +60,7 @@ export function GameShell() {
   const [xrActive, setXrActive] = useState(false);
   const [fps, setFps] = useState(0);
   const [notice, setNotice] = useState('Fundação D0 pronta para exploração.');
+  const [comfort, setComfort] = useState<ComfortSettings>({ ...DEFAULT_COMFORT_SETTINGS });
   const [interaction, setInteraction] = useState<InteractionSnapshot>({
     canGrab: false,
     heldBy: null,
@@ -55,6 +103,14 @@ export function GameShell() {
   useEffect(() => {
     engineRef.current?.setPaused(screen !== 'playing');
   }, [screen]);
+
+  useEffect(() => {
+    engineRef.current?.setComfortSettings(comfort);
+  }, [comfort]);
+
+  const updateComfort = <Key extends keyof ComfortSettings,>(key: Key, value: ComfortSettings[Key]) => {
+    setComfort((current) => ({ ...current, [key]: value }));
+  };
 
   const playDesktop = useCallback(() => {
     engineRef.current?.reset();
@@ -113,6 +169,10 @@ export function GameShell() {
               {xrSupported ? 'Entrar em VR' : 'VR não detectado'}
             </button>
           </div>
+          <details className="home-comfort">
+            <summary>Conforto e acessibilidade</summary>
+            <ComfortControls comfort={comfort} onChange={updateComfort} />
+          </details>
           <div className="foundation-list" aria-label="Recursos desta entrega">
             <span>01 · Mãos XR</span>
             <span>02 · Cubo físico</span>
@@ -141,7 +201,7 @@ export function GameShell() {
             <span><kbd>ESC</kbd> pausar</span>
           </aside>
           <aside className="objective-card" aria-label="Objetivo da sala">
-            <span>OBJETIVO D2.3 · VIDA {interaction.health}/{interaction.maximumHealth}</span>
+            <span>OBJETIVO D2.4 · VIDA {interaction.health}/{interaction.maximumHealth}</span>
             <strong>{interaction.potionConsumed ? 'VIDA RESTAURADA' : interaction.health < interaction.maximumHealth ? 'BEBA A POÇÃO' : 'ATRAVESSE A RUNA'}</strong>
             <small>{interaction.potionConsumed ? 'Frasco consumido e slot liberado' : interaction.health < interaction.maximumHealth ? 'Leve à boca e incline' : interaction.storedItemCount > 0 ? `${interaction.storedItemCount} de 6 slots ocupados` : 'A armadilha é não letal'}</small>
           </aside>
@@ -154,6 +214,7 @@ export function GameShell() {
           <p className="eyebrow">EXPEDIÇÃO INTERROMPIDA</p>
           <h2 id="pause-title">Pausa</h2>
           <p>A simulação está congelada; a sala permanece renderizada.</p>
+          <ComfortControls comfort={comfort} onChange={updateComfort} />
           <div className="pause-actions">
             <button className="primary-button" onClick={() => setScreen('playing')}>Continuar</button>
             <button className="secondary-button" onClick={restart}>Reiniciar sala</button>
@@ -162,7 +223,7 @@ export function GameShell() {
         </section>
       )}
 
-      <footer className="build-label">BUILD D2.3 · LOCAL · {xrActive ? 'XR ATIVO' : 'DESKTOP'}</footer>
+      <footer className="build-label">BUILD D2.4 · LOCAL · {xrActive ? 'XR ATIVO' : 'DESKTOP'}</footer>
     </main>
   );
 }

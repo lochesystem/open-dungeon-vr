@@ -142,6 +142,16 @@ O jogador pega um cubo rúnico, troca de mão, solta, arremessa em um alvo e rec
 - [x] Regras de dano, cura, gesto e consumo possuem testes headless.
 - [ ] Homologar gesto de beber, legibilidade do pulso e conforto no Meta Quest.
 
+### D2.4 — Conforto e robustez da bolsa
+
+- [x] Configurações de postura em pé/sentado, altura da cintura e distância do menu são aplicadas sem reiniciar a sala.
+- [x] Mão dominante define `X` esquerdo ou `A` direito para abrir a bolsa.
+- [x] Modo de uma mão concentra locomoção e interação no controle dominante.
+- [x] Item perdido retorna ao último slot válido ou ao primeiro slot livre; sem slot disponível, volta ao pedestal.
+- [x] Estado autoritativo da bolsa permanece íntegro em 100 ciclos automatizados de guardar e retirar.
+- [x] Painel de conforto está disponível antes da sessão VR e novamente na pausa desktop.
+- [ ] Homologar alcance sentado, modo de uma mão e ajuste fino de cintura/distância no Meta Quest.
+
 ### Experiência
 
 O jogador abre a bolsa, guarda uma poção, uma chave e o cubo rúnico, fecha, caminha, reabre e recupera cada item. Usa a poção, abre uma fechadura com a chave e termina o pequeno desafio.
@@ -163,9 +173,9 @@ O jogador abre a bolsa, guarda uma poção, uma chave e o cubo rúnico, fecha, c
 - [ ] Item só ocupa um lugar.
 - [ ] Slot rejeita categoria incompatível com feedback claro.
 - [ ] Fechar a bolsa não deixa física interna ativa.
-- [ ] Item perdido retorna ao slot correto.
+- [x] Item perdido retorna ao slot correto.
 - [ ] Consumir remove exatamente uma unidade.
-- [ ] Jogador sentado e configuração de um braço concluem o desafio.
+- [ ] Jogador sentado e configuração de um braço concluem o desafio no Quest.
 
 ## 6. D3 — Laboratório de combate estático
 

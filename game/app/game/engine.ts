@@ -21,6 +21,7 @@ import {
   claimObject,
   computeThrowVelocity,
   firstAvailableSlot,
+  preferredRecoverySlot,
   registerTargetHit,
   releaseObject,
   retrieveObject,
@@ -43,6 +44,22 @@ export type InteractionSnapshot = {
   maximumHealth: number;
   potionConsumed: boolean;
   status: string;
+};
+
+export type ComfortSettings = {
+  posture: 'standing' | 'seated';
+  dominantHand: 'left' | 'right';
+  oneHandMode: boolean;
+  waistOffset: number;
+  menuDistance: number;
+};
+
+export const DEFAULT_COMFORT_SETTINGS: ComfortSettings = {
+  posture: 'standing',
+  dominantHand: 'left',
+  oneHandMode: false,
+  waistOffset: 0,
+  menuDistance: 0.52,
 };
 
 type EngineOptions = {
@@ -167,6 +184,7 @@ type ItemRuntime = {
   velocity: THREE.Vector3;
   previousPosition: THREE.Vector3;
   sleeping: boolean;
+  lastStoredSlot: number | null;
 };
 
 export class OpenDungeonEngine {
@@ -226,7 +244,8 @@ export class OpenDungeonEngine {
   private bagOpenAmount = 0;
   private bagMenuOpen = false;
   private desktopBagOpenSeconds = 0;
-  private leftXWasPressed = false;
+  private inventoryButtonWasPressed = false;
+  private comfort: ComfortSettings = { ...DEFAULT_COMFORT_SETTINGS };
   private pullAnimation: {
     itemId: ItemId;
     holder: 'left' | 'right';
@@ -302,6 +321,19 @@ export class OpenDungeonEngine {
     if (!paused) this.lastFrameSeconds = 0;
   }
 
+  setComfortSettings(settings: ComfortSettings) {
+    this.comfort = {
+      posture: settings.posture,
+      dominantHand: settings.dominantHand,
+      oneHandMode: settings.oneHandMode,
+      waistOffset: THREE.MathUtils.clamp(settings.waistOffset, -0.2, 0.2),
+      menuDistance: THREE.MathUtils.clamp(settings.menuDistance, 0.42, 0.72),
+    };
+    this.inventoryButtonWasPressed = false;
+    if (this.bagMenuOpen) this.placeBagMenu();
+    this.updateBagTransform(0);
+  }
+
   reset() {
     this.resetPlayerTransform();
     this.resetObject('Cubo e alvo restaurados.');
@@ -361,7 +393,7 @@ export class OpenDungeonEngine {
 
   private readonly onXrSessionEnd = () => {
     this.xrOriginPending = false;
-    this.leftXWasPressed = false;
+    this.inventoryButtonWasPressed = false;
     this.resetPlayerTransform();
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.quest ? 1 : 1.5));
     this.resize();
@@ -408,6 +440,7 @@ export class OpenDungeonEngine {
       velocity: new THREE.Vector3(),
       previousPosition: new THREE.Vector3(),
       sleeping: true,
+      lastStoredSlot: null,
     };
   }
 
@@ -925,29 +958,34 @@ export class OpenDungeonEngine {
 
     if (this.renderer.xr.isPresenting) {
       const session = this.renderer.xr.getSession();
-      let leftXPressed = false;
+      let inventoryButtonPressed = false;
       for (const source of session?.inputSources ?? []) {
         if (!source.gamepad) continue;
         const [axisX, axisY] = this.readStick(source.gamepad.axes);
-        if (source.handedness === 'left') {
+        const hand = source.handedness === 'right' ? 'right' : source.handedness === 'left' ? 'left' : null;
+        const locomotionHand = this.comfort.oneHandMode ? this.comfort.dominantHand : 'left';
+        if (hand === locomotionHand) {
           right += axisX;
           forward -= axisY;
-          leftXPressed = Boolean(source.gamepad.buttons[META_QUEST_PRIMARY_FACE_BUTTON]?.pressed);
+        }
+        if (hand === this.comfort.dominantHand) {
+          inventoryButtonPressed = Boolean(source.gamepad.buttons[META_QUEST_PRIMARY_FACE_BUTTON]?.pressed);
           if (buttonPressedOnRisingEdge(
             source.gamepad.buttons,
             META_QUEST_PRIMARY_FACE_BUTTON,
-            this.leftXWasPressed,
+            this.inventoryButtonWasPressed,
           )) {
-            this.toggleBagMenu('left');
+            this.toggleBagMenu(this.comfort.dominantHand);
           }
-        } else if (source.handedness === 'right') {
+        }
+        if (!this.comfort.oneHandMode && hand === 'right') {
           turn += axisX;
         }
       }
-      this.leftXWasPressed = leftXPressed;
+      this.inventoryButtonWasPressed = inventoryButtonPressed;
 
     } else {
-      this.leftXWasPressed = false;
+      this.inventoryButtonWasPressed = false;
       const gamepad = Array.from(navigator.getGamepads?.() ?? []).find((candidate) => candidate?.connected);
       if (gamepad) {
         right += applyDeadzone(gamepad.axes[0] ?? 0);
@@ -1135,7 +1173,7 @@ export class OpenDungeonEngine {
     }
 
     if (shouldRecoverObject(this.runeCube.position, ROOM_BOUNDS)) {
-      this.resetObject('O cubo se perdeu e retornou automaticamente ao pedestal.');
+      this.recoverItem(this.cube);
       return;
     }
 
@@ -1236,8 +1274,7 @@ export class OpenDungeonEngine {
     }
 
     if (shouldRecoverObject(item.object.position, ROOM_BOUNDS)) {
-      this.resetItem(item);
-      this.emitInteraction('A chave se perdeu e retornou ao pedestal.');
+      this.recoverItem(item);
     }
     item.material.emissiveIntensity = this.itemCanBeGrabbed(item) ? 2.8 : 1.15;
   }
@@ -1280,9 +1317,10 @@ export class OpenDungeonEngine {
 
   private updateBagTransform(delta: number) {
     const headHeight = THREE.MathUtils.clamp(this.camera.position.y, 1.15, 1.95);
+    const postureDrop = this.comfort.posture === 'seated' ? 0.58 : 0.76;
     this.adventureBag.position.set(
       this.camera.position.x,
-      Math.max(0.56, headHeight - 0.76),
+      Math.max(0.48, headHeight - postureDrop + this.comfort.waistOffset),
       this.camera.position.z - 0.03,
     );
     this.desktopBagOpenSeconds = Math.max(0, this.desktopBagOpenSeconds - delta);
@@ -1340,9 +1378,9 @@ export class OpenDungeonEngine {
     if (forward.lengthSq() < 0.001) forward.set(0, 0, -1);
     forward.normalize();
     this.bagMenu.position.set(
-      this.camera.position.x + forward.x * 0.62,
+      this.camera.position.x + forward.x * this.comfort.menuDistance,
       THREE.MathUtils.clamp(this.camera.position.y - 0.12, 1.02, 1.6),
-      this.camera.position.z + forward.z * 0.62,
+      this.camera.position.z + forward.z * this.comfort.menuDistance,
     );
     this.bagMenu.rotation.set(0, Math.atan2(-forward.x, -forward.z), 0);
   }
@@ -1447,6 +1485,7 @@ export class OpenDungeonEngine {
     const stored = storeObject(item.state, holder, slot, BAG_SLOT_COUNT);
     if (stored === item.state) return;
     item.state = stored;
+    item.lastStoredSlot = slot;
     item.sleeping = true;
     item.velocity.set(0, 0, 0);
     this.poseHistory.set(holder, []);
@@ -1530,6 +1569,7 @@ export class OpenDungeonEngine {
   }
 
   private tryControllerGrab(holder: 'left' | 'right') {
+    if (this.comfort.oneHandMode && holder !== this.comfort.dominantHand) return;
     if (this.isControllerNearWaist(holder)) {
       this.toggleBagMenu(holder);
       return;
@@ -1655,6 +1695,7 @@ export class OpenDungeonEngine {
     this.runeCube.rotation.set(0, Math.PI / 4, 0);
     this.runeCube.scale.setScalar(1);
     this.runeCube.visible = true;
+    this.cube.lastStoredSlot = null;
     this.resetItem(key);
     this.resetItem(potion);
     this.keyInserted = false;
@@ -1677,12 +1718,41 @@ export class OpenDungeonEngine {
 
   private resetItem(item: ItemRuntime) {
     item.state = { ...INITIAL_OBJECT_STATE };
+    item.lastStoredSlot = null;
     item.sleeping = true;
     item.velocity.set(0, 0, 0);
     item.object.position.copy(item.home);
     item.object.rotation.set(0.12, item.id === 'cube' ? Math.PI / 4 : 0.3, item.id === 'key' ? -0.08 : 0);
     item.object.scale.setScalar(item.worldScale);
     item.object.visible = true;
+  }
+
+  private recoverItem(item: ItemRuntime) {
+    const occupied = Array.from(this.items.values())
+      .filter((candidate) => candidate !== item)
+      .map((candidate) => candidate.state.storedSlot)
+      .filter((slot): slot is number => slot !== null);
+    const slot = preferredRecoverySlot(item.lastStoredSlot, occupied, BAG_SLOT_COUNT);
+    item.velocity.set(0, 0, 0);
+    item.sleeping = true;
+    item.state = slot === null
+      ? { ...INITIAL_OBJECT_STATE }
+      : { ...INITIAL_OBJECT_STATE, storedSlot: slot };
+    this.poseHistory.forEach((history) => history.splice(0));
+    this.gripRotationOffsets.clear();
+    if (this.pullAnimation?.itemId === item.id) this.pullAnimation = null;
+    if (slot === null) {
+      item.object.position.copy(item.home);
+      item.object.rotation.set(0.12, item.id === 'cube' ? Math.PI / 4 : 0.3, item.id === 'key' ? -0.08 : 0);
+      item.object.scale.setScalar(item.worldScale);
+      item.object.visible = true;
+      this.emitInteraction(`${item.label} recuperada no pedestal.`);
+      return;
+    }
+    item.lastStoredSlot = slot;
+    item.object.scale.setScalar(item.inventoryScale);
+    item.object.visible = this.bagMenuOpen;
+    this.emitInteraction(`${item.label} recuperada no slot ${slot + 1}.`);
   }
 
   private emitInteraction(status: string) {

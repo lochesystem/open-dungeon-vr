@@ -10,12 +10,12 @@ const buttons = (pressedIndex = -1) => Array.from(
   (_, index) => ({ pressed: index === pressedIndex }),
 );
 
-test('Meta Quest X button uses the primary face-button mapping', () => {
+test('Meta Quest X and A use the primary face-button mapping on their respective hands', () => {
   assert.equal(META_QUEST_PRIMARY_FACE_BUTTON, 4);
   assert.equal(buttonPressedOnRisingEdge(buttons(4), META_QUEST_PRIMARY_FACE_BUTTON, false), true);
 });
 
-test('holding X toggles the inventory only on the rising edge', () => {
+test('holding the dominant-hand inventory button toggles only on the rising edge', () => {
   assert.equal(buttonPressedOnRisingEdge(buttons(4), 4, true), false);
   assert.equal(buttonPressedOnRisingEdge(buttons(), 4, false), false);
 });

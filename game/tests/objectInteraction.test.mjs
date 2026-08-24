@@ -5,6 +5,7 @@ import {
   claimObject,
   computeThrowVelocity,
   firstAvailableSlot,
+  preferredRecoverySlot,
   registerTargetHit,
   releaseObject,
   retrieveObject,
@@ -56,6 +57,27 @@ test('cube and mission key keep exclusive slots while stored together', () => {
   assert.equal(cube.storedSlot, 0);
   assert.equal(key.storedSlot, 1);
   assert.notEqual(cube.storedSlot, key.storedSlot);
+});
+
+test('lost item returns to its previous slot when that slot is still available', () => {
+  assert.equal(preferredRecoverySlot(3, [0, 1], 6), 3);
+  assert.equal(preferredRecoverySlot(1, [0, 1], 6), 2);
+  assert.equal(preferredRecoverySlot(null, [0, 1], 6), 2);
+});
+
+test('bag remains authoritative through 100 store and retrieve cycles', () => {
+  let state = { ...INITIAL_OBJECT_STATE };
+  for (let cycle = 0; cycle < 100; cycle += 1) {
+    state = claimObject(state, cycle % 2 === 0 ? 'left' : 'right');
+    const holder = state.holder;
+    state = storeObject(state, holder, 2, 6);
+    assert.equal(state.holder, null);
+    assert.equal(state.storedSlot, 2);
+    state = retrieveObject(state, holder, 2);
+    assert.equal(state.holder, holder);
+    assert.equal(state.storedSlot, null);
+    state = releaseObject(state, holder);
+  }
 });
 
 test('throw velocity uses pose history and caps impossible spikes', () => {
