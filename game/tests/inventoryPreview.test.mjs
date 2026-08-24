@@ -17,6 +17,10 @@ test('cube and key previews fit inside their slot without touching neighbours', 
   assert.ok(potionWidth < safeWidth);
 });
 
+test('sword preview remains compact enough for a single inventory socket', () => {
+  assert.ok(INVENTORY_PREVIEW_SCALE.sword * 1.05 < INVENTORY_SLOT_CENTER_SPACING);
+});
+
 test('inventory preview only rocks subtly instead of completing full rotations', () => {
   for (let frame = 0; frame < 240; frame += 1) {
     assert.ok(Math.abs(inventoryPreviewYaw(frame / 60, 1)) <= 0.16);

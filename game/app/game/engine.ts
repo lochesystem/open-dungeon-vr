@@ -9,6 +9,7 @@ import {
 } from './collision';
 import { applyDeadzone, clampFrameDelta, movementVelocity, rigPositionForTrackedSpawn } from './motion';
 import { captureGripRotationOffset, heldObjectRotation } from './grip';
+import { applyCombatDamage, isDeliberateSwing, sweptSphereHit } from './combat';
 import { INVENTORY_PREVIEW_SCALE, inventoryPreviewYaw } from './inventoryPreview';
 import { canInsertMissionKey, doorBlocksPassage } from './missionDoor';
 import { POTION_WORLD_SCALE, applyNonLethalHazard, healPlayer, shouldDrinkPotion } from './potion';
@@ -44,6 +45,9 @@ export type InteractionSnapshot = {
   health: number;
   maximumHealth: number;
   potionConsumed: boolean;
+  dummyHealth: number;
+  dummyMaximumHealth: number;
+  dummyDefeated: boolean;
   status: string;
 };
 
@@ -85,12 +89,15 @@ const ROOM_BOUNDS: CollisionBounds = { minX: -11.7, maxX: 11.7, minZ: -11.7, max
 const CUBE_HOME = new THREE.Vector3(3, 1.27, 4.2);
 const KEY_HOME = new THREE.Vector3(-3, 1.2, 4.2);
 const POTION_HOME = new THREE.Vector3(0, 1.22, 4.15);
+const SWORD_HOME = new THREE.Vector3(-5.1, 1.08, 1.7);
 const HAZARD_POSITION = new THREE.Vector3(0, 0, 5.45);
 const HAZARD_RADIUS = 0.72;
 const MAX_HEALTH = 3;
 const LOCK_POSITION = new THREE.Vector3(1.45, 1.18, -7.05);
 const TARGET_POSITION = new THREE.Vector3(3, 2, -4.8);
 const TARGET_RADIUS = 0.72;
+const DUMMY_POSITION = new THREE.Vector3(-3.05, 1.15, -2.8);
+const DUMMY_MAX_HEALTH = 3;
 const VR_PAUSE_MENU_ITEM_COUNT = 8;
 
 const PILLAR_COLLIDERS: BoxCollider[] = [-9.6, -6.4, 6.4, 9.6].flatMap((x) =>
@@ -153,6 +160,24 @@ const POTION_PEDESTAL_COLLIDER: BoxCollider = {
   rotation: 0,
 };
 
+const SWORD_RACK_COLLIDER: BoxCollider = {
+  kind: 'box',
+  id: 'foundation-sword-rack',
+  x: SWORD_HOME.x,
+  z: SWORD_HOME.z,
+  halfX: 0.45,
+  halfZ: 0.21,
+  rotation: 0,
+};
+
+const TRAINING_DUMMY_COLLIDER: CircleCollider = {
+  kind: 'circle',
+  id: 'training-dummy',
+  x: DUMMY_POSITION.x,
+  z: DUMMY_POSITION.z,
+  radius: 0.5,
+};
+
 const LOCKED_DOOR_COLLIDER: BoxCollider = {
   kind: 'box',
   id: 'locked-portal-door',
@@ -170,9 +195,11 @@ const ROOM_COLLIDERS: StaticCollider[] = [
   PEDESTAL_COLLIDER,
   KEY_PEDESTAL_COLLIDER,
   POTION_PEDESTAL_COLLIDER,
+  SWORD_RACK_COLLIDER,
+  TRAINING_DUMMY_COLLIDER,
 ];
 
-type ItemId = 'cube' | 'key' | 'potion';
+type ItemId = 'cube' | 'key' | 'potion' | 'sword';
 
 type ItemRuntime = {
   id: ItemId;
@@ -207,6 +234,9 @@ export class OpenDungeonEngine {
   private readonly worldQuaternion = new THREE.Quaternion();
   private readonly raycaster = new THREE.Raycaster();
   private readonly controllers = new Map<Holder, THREE.Group>();
+  private readonly vrPointerLines = new Map<'left' | 'right', THREE.Line>();
+  private readonly vrPointerCursors = new Map<'left' | 'right', THREE.Mesh>();
+  private readonly vrPointerTargets = new Map<'left' | 'right', number | null>();
   private readonly poseHistory = new Map<Holder, PoseSample[]>();
   private readonly gripRotationOffsets = new Map<Holder, THREE.Quaternion>();
   private readonly controllerListeners: Array<{ controller: THREE.Group; start: () => void; end: () => void }> = [];
@@ -227,6 +257,8 @@ export class OpenDungeonEngine {
   private doorColliderDebug: THREE.Object3D | null = null;
   private readonly targetMaterial: THREE.MeshStandardMaterial;
   private readonly targetCore: THREE.Mesh;
+  private readonly trainingDummy: THREE.Group;
+  private readonly dummyMaterial: THREE.MeshStandardMaterial;
   private targetHits = 0;
   private targetPulseSeconds = 0;
   private lastInteractionSignature = '';
@@ -234,6 +266,12 @@ export class OpenDungeonEngine {
   private doorOpenAmount = 0;
   private health = MAX_HEALTH;
   private potionConsumed = false;
+  private dummyHealth = DUMMY_MAX_HEALTH;
+  private dummyHitCooldown = 0;
+  private dummyHitPulse = 0;
+  private readonly swordTip = new THREE.Vector3();
+  private readonly previousSwordTip = new THREE.Vector3();
+  private swordTipReady = false;
   private drinkProgress = 0;
   private hazardOccupied = false;
   private hazardPulseSeconds = 0;
@@ -303,11 +341,16 @@ export class OpenDungeonEngine {
     this.items.set('potion', this.createItemRuntime(
       'potion', 'Poção restauradora', interactables.potion, interactables.potionMaterial, POTION_HOME, 0.1, INVENTORY_PREVIEW_SCALE.potion, POTION_WORLD_SCALE,
     ));
+    this.items.set('sword', this.createItemRuntime(
+      'sword', 'Espada da fundação', interactables.sword, interactables.swordMaterial, SWORD_HOME, 0.13, INVENTORY_PREVIEW_SCALE.sword,
+    ));
     this.door = interactables.door;
     this.lockSocket = interactables.lockSocket;
     this.hazardMaterial = interactables.hazardMaterial;
     this.targetMaterial = interactables.targetMaterial;
     this.targetCore = interactables.targetCore;
+    this.trainingDummy = interactables.trainingDummy;
+    this.dummyMaterial = interactables.dummyMaterial;
     this.bagMenuMaterial = this.basicMaterial({
       color: 0x102b28,
       transparent: true,
@@ -316,10 +359,14 @@ export class OpenDungeonEngine {
       depthWrite: false,
     });
     this.vrPauseCanvas = document.createElement('canvas');
-    this.vrPauseCanvas.width = 1024;
-    this.vrPauseCanvas.height = 720;
+    this.vrPauseCanvas.width = 2048;
+    this.vrPauseCanvas.height = 1440;
     this.vrPauseTexture = new THREE.CanvasTexture(this.vrPauseCanvas);
     this.vrPauseTexture.colorSpace = THREE.SRGBColorSpace;
+    this.vrPauseTexture.generateMipmaps = false;
+    this.vrPauseTexture.minFilter = THREE.LinearFilter;
+    this.vrPauseTexture.magFilter = THREE.LinearFilter;
+    this.vrPauseTexture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
     this.vrPausePanel = new THREE.Mesh(
       this.geometry(new THREE.PlaneGeometry(1.36, 0.96)),
       this.basicMaterial({
@@ -345,7 +392,7 @@ export class OpenDungeonEngine {
     this.renderer.xr.addEventListener('sessionstart', this.onXrSessionStart);
     this.renderer.xr.addEventListener('sessionend', this.onXrSessionEnd);
     this.renderer.setAnimationLoop(this.render);
-    this.emitInteraction('Aproxime-se do cubo rúnico e mire nele para pegar.');
+    this.emitInteraction('Encontre a espada na lateral esquerda e treine no boneco central.');
   }
 
   setPaused(paused: boolean) {
@@ -696,6 +743,57 @@ export class OpenDungeonEngine {
     potion.position.copy(POTION_HOME);
     this.scene.add(potion);
 
+    const swordRack = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.9, 0.72, 0.42)), stone);
+    swordRack.position.set(SWORD_HOME.x, 0.36, SWORD_HOME.z);
+    this.scene.add(swordRack);
+    const swordMaterial = this.material({
+      color: 0xc9d8d5,
+      emissive: 0x235f59,
+      emissiveIntensity: 0.85,
+      roughness: 0.24,
+      metalness: 0.86,
+    });
+    const swordGripMaterial = this.material({ color: 0x493227, roughness: 0.72, metalness: 0.22 });
+    const sword = new THREE.Group();
+    sword.name = 'foundation-sword';
+    const grip = new THREE.Mesh(this.geometry(new THREE.CylinderGeometry(0.035, 0.042, 0.22, 12)), swordGripMaterial);
+    grip.rotation.x = Math.PI / 2;
+    grip.position.z = 0.02;
+    const pommel = new THREE.Mesh(this.geometry(new THREE.SphereGeometry(0.065, 12, 8)), bronze);
+    pommel.position.z = 0.15;
+    const guard = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.32, 0.055, 0.07)), bronze);
+    guard.position.z = -0.12;
+    const blade = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.085, 0.025, 0.7)), swordMaterial);
+    blade.position.z = -0.5;
+    const bladeTip = new THREE.Mesh(this.geometry(new THREE.ConeGeometry(0.062, 0.18, 4)), swordMaterial);
+    bladeTip.rotation.x = -Math.PI / 2;
+    bladeTip.position.z = -0.94;
+    sword.add(grip, pommel, guard, blade, bladeTip);
+    sword.position.copy(SWORD_HOME);
+    sword.rotation.set(0.08, -0.42, 0.12);
+    this.scene.add(sword);
+
+    const dummyMaterial = this.material({
+      color: 0x8a6244,
+      emissive: 0x1a0c06,
+      emissiveIntensity: 0.25,
+      roughness: 0.88,
+      metalness: 0.04,
+    });
+    const trainingDummy = new THREE.Group();
+    trainingDummy.name = 'training-dummy';
+    trainingDummy.position.copy(DUMMY_POSITION);
+    const dummyPost = new THREE.Mesh(this.geometry(new THREE.CylinderGeometry(0.075, 0.095, 1.65, 12)), bronze);
+    dummyPost.position.y = -0.32;
+    const dummyTorso = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.72, 0.78, 0.28)), dummyMaterial);
+    dummyTorso.position.y = 0.16;
+    const dummyHead = new THREE.Mesh(this.geometry(new THREE.SphereGeometry(0.22, 16, 12)), dummyMaterial);
+    dummyHead.position.y = 0.78;
+    const dummyBase = new THREE.Mesh(this.geometry(new THREE.CylinderGeometry(0.48, 0.58, 0.16, 16)), stone);
+    dummyBase.position.y = -1.05;
+    trainingDummy.add(dummyPost, dummyTorso, dummyHead, dummyBase);
+    this.scene.add(trainingDummy);
+
     const hazardMaterial = this.material({
       color: 0xd14b55,
       emissive: 0x8f1027,
@@ -765,11 +863,15 @@ export class OpenDungeonEngine {
       keyMaterial,
       potion,
       potionMaterial,
+      sword,
+      swordMaterial,
       hazardMaterial,
       door,
       lockSocket,
       targetMaterial,
       targetCore,
+      trainingDummy,
+      dummyMaterial,
     };
   }
 
@@ -787,6 +889,42 @@ export class OpenDungeonEngine {
       const palm = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.09, 0.08, 0.17)), handMaterial);
       palm.position.z = -0.06;
       controller.add(palm);
+      const pointerMaterial = new THREE.LineBasicMaterial({
+        color: holder === 'left' ? 0x51e6b8 : 0xd3ad6e,
+        transparent: true,
+        opacity: 0.88,
+        depthTest: false,
+        toneMapped: false,
+      });
+      this.disposableMaterials.add(pointerMaterial);
+      const pointer = new THREE.Line(
+        this.geometry(new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(0, 0, 0),
+          new THREE.Vector3(0, 0, -1),
+        ])),
+        pointerMaterial,
+      );
+      pointer.name = `${holder}-menu-pointer`;
+      pointer.scale.z = 1.2;
+      pointer.renderOrder = 42;
+      pointer.visible = false;
+      controller.add(pointer);
+      const cursor = new THREE.Mesh(
+        this.geometry(new THREE.RingGeometry(0.012, 0.023, 24)),
+        this.basicMaterial({
+          color: holder === 'left' ? 0x51e6b8 : 0xd3ad6e,
+          side: THREE.DoubleSide,
+          depthTest: false,
+          toneMapped: false,
+        }),
+      );
+      cursor.name = `${holder}-menu-cursor`;
+      cursor.renderOrder = 43;
+      cursor.visible = false;
+      this.scene.add(cursor);
+      this.vrPointerLines.set(holder, pointer);
+      this.vrPointerCursors.set(holder, cursor);
+      this.vrPointerTargets.set(holder, null);
       if (holder === 'left') {
         this.wristHealth.name = 'wrist-health-indicator';
         this.wristHealth.position.set(0, 0.075, -0.015);
@@ -941,6 +1079,7 @@ export class OpenDungeonEngine {
     }
     if (event.code === 'KeyR') this.resetObject('Itens e passagem restaurados.');
     if (event.code === 'KeyB') this.toggleDesktopBag();
+    if (event.code === 'KeyJ') this.desktopSwordStrike();
   };
 
   private readonly onKeyUp = (event: KeyboardEvent) => {
@@ -1116,6 +1255,8 @@ export class OpenDungeonEngine {
   private updateAdventureObject(delta: number, nowSeconds: number) {
     this.updateSecondaryItem(this.items.get('key')!, delta, nowSeconds);
     this.updateSecondaryItem(this.items.get('potion')!, delta, nowSeconds);
+    this.updateSecondaryItem(this.items.get('sword')!, delta, nowSeconds);
+    this.updateTrainingCombat(delta);
     if (this.objectState.storedSlot !== null) {
       const slot = this.bagSlots[this.objectState.storedSlot];
       if (slot) {
@@ -1327,6 +1468,66 @@ export class OpenDungeonEngine {
     item.material.emissiveIntensity = this.itemCanBeGrabbed(item) ? 2.8 : 1.15;
   }
 
+  private updateTrainingCombat(delta: number) {
+    this.dummyHitCooldown = Math.max(0, this.dummyHitCooldown - delta);
+    this.dummyHitPulse = Math.max(0, this.dummyHitPulse - delta);
+    const defeated = this.dummyHealth <= 0;
+    const targetRotation = defeated ? -1.22 : this.dummyHitPulse > 0 ? -0.12 : 0;
+    this.trainingDummy.rotation.z += (targetRotation - this.trainingDummy.rotation.z) * (1 - Math.exp(-10 * delta));
+    this.dummyMaterial.emissive.setHex(this.dummyHitPulse > 0 ? 0xb53122 : defeated ? 0x240906 : 0x1a0c06);
+    this.dummyMaterial.emissiveIntensity = this.dummyHitPulse > 0 ? 2.8 : defeated ? 0.8 : 0.25;
+
+    const sword = this.items.get('sword')!;
+    if (!this.renderer.xr.isPresenting || !sword.state.holder || this.pullAnimation?.itemId === 'sword' || defeated) {
+      this.swordTipReady = false;
+      return;
+    }
+    sword.object.updateMatrixWorld(true);
+    this.swordTip.set(0, 0, -1.03);
+    sword.object.localToWorld(this.swordTip);
+    if (
+      this.swordTipReady
+      && this.dummyHitCooldown <= 0
+      && isDeliberateSwing(this.previousSwordTip, this.swordTip, delta)
+      && sweptSphereHit(
+        this.previousSwordTip,
+        this.swordTip,
+        { x: DUMMY_POSITION.x, y: DUMMY_POSITION.y + 0.16, z: DUMMY_POSITION.z },
+        0.48,
+      )
+    ) {
+      this.registerDummyHit(sword.state.holder);
+    }
+    this.previousSwordTip.copy(this.swordTip);
+    this.swordTipReady = true;
+  }
+
+  private registerDummyHit(holder: Holder) {
+    if (this.dummyHealth <= 0 || this.dummyHitCooldown > 0) return;
+    this.dummyHealth = applyCombatDamage(this.dummyHealth);
+    this.dummyHitCooldown = 0.32;
+    this.dummyHitPulse = 0.24;
+    this.playTone(this.dummyHealth === 0 ? 165 : 240 + this.dummyHealth * 55, 0.11, 0.065);
+    this.pulseController(holder, this.dummyHealth === 0 ? 0.62 : 0.42, this.dummyHealth === 0 ? 105 : 68);
+    this.emitInteraction(this.dummyHealth === 0
+      ? 'Boneco derrotado · laboratório de combate concluído.'
+      : `Golpe válido · boneco ${this.dummyHealth}/${DUMMY_MAX_HEALTH}.`);
+  }
+
+  private desktopSwordStrike() {
+    const sword = this.itemForHolder('desktop');
+    if (sword?.id !== 'sword') {
+      this.emitInteraction('Segure a espada e pressione J para atacar.');
+      return;
+    }
+    const player = this.getPlayerWorldPosition();
+    if (Math.hypot(player.x - DUMMY_POSITION.x, player.z - DUMMY_POSITION.z) > 2.35) {
+      this.emitInteraction('Aproxime-se do boneco para alcançar com a espada.');
+      return;
+    }
+    this.registerDummyHit('desktop');
+  }
+
   private updateDrinkGesture(item: ItemRuntime, holder: Holder, delta: number) {
     if (this.health >= MAX_HEALTH) {
       this.drinkProgress = 0;
@@ -1362,6 +1563,7 @@ export class OpenDungeonEngine {
     this.placeVrPauseMenu();
     this.drawVrPauseMenu();
     this.vrPausePanel.visible = true;
+    this.vrPointerLines.forEach((pointer) => { pointer.visible = true; });
     this.playTone(420, 0.08, 0.045);
     this.pulseController('left', 0.24, 45);
     this.emitInteraction('Menu de pausa VR aberto. Use o analógico esquerdo e o gatilho.');
@@ -1371,6 +1573,9 @@ export class OpenDungeonEngine {
     if (!this.vrPauseMenuOpen && !this.vrPausePanel?.visible) return;
     this.vrPauseMenuOpen = false;
     if (this.vrPausePanel) this.vrPausePanel.visible = false;
+    this.vrPointerLines.forEach((pointer) => { pointer.visible = false; });
+    this.vrPointerCursors.forEach((cursor) => { cursor.visible = false; });
+    this.vrPointerTargets.forEach((_, holder) => { this.vrPointerTargets.set(holder, null); });
     this.playTone(310, 0.07, 0.04);
     this.emitInteraction('Menu de pausa VR fechado.');
   }
@@ -1391,6 +1596,7 @@ export class OpenDungeonEngine {
   private updateVrPauseMenu() {
     const session = this.renderer.xr.getSession();
     if (!session) return;
+    this.updateVrPausePointers();
     const left = Array.from(session.inputSources)
       .find((source) => source.handedness === 'left')?.gamepad;
     const pausePressed = left ? vrPauseButtonPressed(left.buttons) : false;
@@ -1419,6 +1625,48 @@ export class OpenDungeonEngine {
     }
   }
 
+  private vrPauseMenuIndexFromUv(uv: THREE.Vector2) {
+    const x = uv.x * 1024;
+    const y = (1 - uv.y) * 720;
+    if (x < 58 || x > 966) return null;
+    for (let index = 0; index < VR_PAUSE_MENU_ITEM_COUNT; index += 1) {
+      const top = 190 + index * 57;
+      if (y >= top && y <= top + 45) return index;
+    }
+    return null;
+  }
+
+  private updateVrPausePointers() {
+    this.scene.updateMatrixWorld(true);
+    const panelRotation = this.vrPausePanel.getWorldQuaternion(new THREE.Quaternion());
+    for (const holder of ['left', 'right'] as const) {
+      const controller = this.controllers.get(holder);
+      const pointer = this.vrPointerLines.get(holder);
+      const cursor = this.vrPointerCursors.get(holder);
+      if (!controller || !pointer || !cursor) continue;
+      pointer.visible = true;
+      this.raycaster.setFromXRController(controller);
+      const hit = this.raycaster.intersectObject(this.vrPausePanel, false)[0];
+      if (!hit) {
+        pointer.scale.z = 1.4;
+        cursor.visible = false;
+        this.vrPointerTargets.set(holder, null);
+        continue;
+      }
+      pointer.scale.z = Math.max(0.08, hit.distance);
+      cursor.visible = true;
+      cursor.position.copy(hit.point);
+      cursor.quaternion.copy(panelRotation);
+      const target = hit.uv ? this.vrPauseMenuIndexFromUv(hit.uv) : null;
+      this.vrPointerTargets.set(holder, target);
+      if (target !== null && target !== this.vrPauseMenuIndex) {
+        this.vrPauseMenuIndex = target;
+        this.drawVrPauseMenu();
+        this.pulseController(holder, 0.06, 16);
+      }
+    }
+  }
+
   private adjustVrPauseMenu(direction: -1 | 1) {
     const next = { ...this.comfort };
     if (this.vrPauseMenuIndex === 1) next.posture = next.posture === 'standing' ? 'seated' : 'standing';
@@ -1433,7 +1681,8 @@ export class OpenDungeonEngine {
     this.pulseController('left', 0.12, 28);
   }
 
-  private activateVrPauseMenuItem() {
+  private activateVrPauseMenuItem(target?: number | null) {
+    if (target !== undefined && target !== null) this.vrPauseMenuIndex = target;
     if (this.vrPauseMenuIndex === 0) {
       this.closeVrPauseMenu();
       return;
@@ -1463,6 +1712,7 @@ export class OpenDungeonEngine {
       'Reiniciar sala',
       'Sair do VR',
     ];
+    context.setTransform(2, 0, 0, 2, 0, 0);
     context.clearRect(0, 0, 1024, 720);
     context.fillStyle = 'rgba(4, 13, 14, 0.96)';
     context.fillRect(16, 16, 992, 688);
@@ -1551,7 +1801,10 @@ export class OpenDungeonEngine {
       const stored = this.itemInSlot(index);
       material.emissiveIntensity = stored ? 2.6 : 0.5;
       material.color.setHex(
-        stored?.id === 'key' ? 0xffbd55 : stored?.id === 'potion' ? 0xff6f9f : stored ? 0x73e4ca : 0x51e6b8,
+        stored?.id === 'key' ? 0xffbd55
+          : stored?.id === 'potion' ? 0xff6f9f
+            : stored?.id === 'sword' ? 0xbfe1dc
+              : stored ? 0x73e4ca : 0x51e6b8,
       );
     }
 
@@ -1773,7 +2026,7 @@ export class OpenDungeonEngine {
   private tryControllerGrab(holder: 'left' | 'right') {
     if (this.vrPauseMenuOpen) {
       this.vrMenuSelectGuards.add(holder);
-      this.activateVrPauseMenuItem();
+      this.activateVrPauseMenuItem(this.vrPointerTargets.get(holder));
       this.pulseController(holder, 0.18, 34);
       return;
     }
@@ -1790,7 +2043,7 @@ export class OpenDungeonEngine {
     }
     const candidate = this.controllerGrabCandidate(holder);
     if (!candidate) {
-      this.emitInteraction('Aponte a mão para o cubo ou para a chave e pressione o gatilho.');
+      this.emitInteraction('Aponte a mão para um item e pressione o gatilho.');
       return;
     }
     this.claimHeldObject(holder, candidate.item, candidate.pullDistance);
@@ -1827,6 +2080,10 @@ export class OpenDungeonEngine {
     this.scene.updateMatrixWorld(true);
     const holderRotation = this.holderWorldRotation(holder);
     if (holderRotation) {
+      if (item.id === 'sword') {
+        this.gripRotationOffsets.set(holder, new THREE.Quaternion());
+        return;
+      }
       const objectRotation = item.object.getWorldQuaternion(new THREE.Quaternion());
       this.gripRotationOffsets.set(holder, captureGripRotationOffset(holderRotation, objectRotation));
     }
@@ -1894,6 +2151,7 @@ export class OpenDungeonEngine {
     this.objectState = { ...INITIAL_OBJECT_STATE };
     const key = this.items.get('key')!;
     const potion = this.items.get('potion')!;
+    const sword = this.items.get('sword')!;
     key.state = { ...INITIAL_OBJECT_STATE };
     this.targetHits = 0;
     this.targetPulseSeconds = 0;
@@ -1906,10 +2164,16 @@ export class OpenDungeonEngine {
     this.cube.lastStoredSlot = null;
     this.resetItem(key);
     this.resetItem(potion);
+    this.resetItem(sword);
     this.keyInserted = false;
     this.potionConsumed = false;
     this.drinkProgress = 0;
     this.health = MAX_HEALTH;
+    this.dummyHealth = DUMMY_MAX_HEALTH;
+    this.dummyHitCooldown = 0;
+    this.dummyHitPulse = 0;
+    this.trainingDummy.rotation.set(0, 0, 0);
+    this.swordTipReady = false;
     this.hazardOccupied = false;
     this.hazardPulseSeconds = 0;
     this.doorOpenAmount = 0;
@@ -1975,6 +2239,9 @@ export class OpenDungeonEngine {
       health: this.health,
       maximumHealth: MAX_HEALTH,
       potionConsumed: this.potionConsumed,
+      dummyHealth: this.dummyHealth,
+      dummyMaximumHealth: DUMMY_MAX_HEALTH,
+      dummyDefeated: this.dummyHealth <= 0,
       status,
     };
     const signature = JSON.stringify(snapshot);
@@ -1984,6 +2251,11 @@ export class OpenDungeonEngine {
   }
 
   private contextualStatus(fallback: string) {
+    if (this.dummyHealth <= 0) return 'Boneco derrotado · laboratório D3.1 concluído.';
+    const sword = this.items.get('sword');
+    if (sword?.state.holder) return `Espada em mãos · acerte o boneco com um arco deliberado (${this.dummyHealth}/${DUMMY_MAX_HEALTH}).`;
+    if (sword && sword.state.storedSlot !== null) return `Espada guardada no slot ${sword.state.storedSlot + 1} · retire-a para iniciar o treino.`;
+    if (sword && !sword.state.holder) return 'Encontre a espada no suporte à esquerda e puxe-a para sua mão.';
     if (this.keyInserted) return 'Passagem desbloqueada · atravesse a porta do portal.';
     if (this.health < MAX_HEALTH && !this.potionConsumed) return `Vida ${this.health}/${MAX_HEALTH} · encontre e beba a poção.`;
     if (this.potionConsumed) return `Poção consumida · vida ${this.health}/${MAX_HEALTH}.`;

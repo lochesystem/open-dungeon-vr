@@ -17,6 +17,22 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D3 — Laboratório de combate estático.
 
+## [0.8.0] — 2026-08-24
+
+### Adicionado
+
+- Ponteiros espaciais nos dois controles, com linha, cursor, hover por raycast e confirmação pelo gatilho no menu VR.
+- Painel VR renderizado internamente em 2048×1440, com filtragem linear sem mipmaps e anisotropia máxima.
+- Espada procedural que compartilha puxão assistido, pegada física, bolsa e recuperação dos demais itens.
+- Boneco estático com três pontos de vida, hitbox corporal, reação, derrota, áudio e resposta háptica.
+- Validação de golpe pela trajetória varrida da ponta, deslocamento mínimo, velocidade e cooldown.
+- Equivalência desktop pela tecla `J` quando a espada está equipada e o boneco está ao alcance.
+
+### Validado
+
+- Testes rejeitam tremores e golpes que não cruzam a hitbox, validam arcos deliberados e limitam vida a zero.
+- Suíte ampliada para 45 testes.
+
 ## [0.7.0] — 2026-08-24
 
 ### Adicionado

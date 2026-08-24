@@ -72,7 +72,10 @@ export function GameShell() {
     health: 3,
     maximumHealth: 3,
     potionConsumed: false,
-    status: 'Encontre o cubo rúnico sobre o pedestal.',
+    dummyHealth: 3,
+    dummyMaximumHealth: 3,
+    dummyDefeated: false,
+    status: 'Encontre a espada e derrote o boneco de treinamento.',
   });
 
   useEffect(() => {
@@ -115,7 +118,7 @@ export function GameShell() {
 
   const playDesktop = useCallback(() => {
     engineRef.current?.reset();
-    setNotice('Atravesse a armadilha, encontre a poção e restaure sua vida.');
+    setNotice('Encontre a espada e acerte três golpes válidos no boneco de treinamento.');
     setScreen('playing');
   }, []);
 
@@ -180,6 +183,7 @@ export function GameShell() {
             <span>03 · Bolsa de cintura</span>
             <span>04 · Chave e passagem</span>
             <span>05 · Poção e vida</span>
+            <span>06 · Espada e treino</span>
           </div>
           <p className="notice" role="status">{notice}</p>
         </section>
@@ -196,15 +200,16 @@ export function GameShell() {
             <span><kbd>E</kbd> pegar / soltar</span>
             <span><kbd>F</kbd> arremessar</span>
             <span><kbd>G</kbd> beber poção</span>
+            <span><kbd>J</kbd> golpe de espada</span>
             <span><kbd>B</kbd> guardar / retirar</span>
             <span><kbd>R</kbd> reiniciar itens</span>
             <span><kbd>H</kbd> hitboxes</span>
             <span><kbd>ESC</kbd> pausar</span>
           </aside>
           <aside className="objective-card" aria-label="Objetivo da sala">
-            <span>OBJETIVO D2.5 · VIDA {interaction.health}/{interaction.maximumHealth}</span>
-            <strong>{interaction.potionConsumed ? 'VIDA RESTAURADA' : interaction.health < interaction.maximumHealth ? 'BEBA A POÇÃO' : 'ATRAVESSE A RUNA'}</strong>
-            <small>{interaction.potionConsumed ? 'Frasco consumido e slot liberado' : interaction.health < interaction.maximumHealth ? 'Leve à boca e incline' : interaction.storedItemCount > 0 ? `${interaction.storedItemCount} de 6 slots ocupados` : 'A armadilha é não letal'}</small>
+            <span>OBJETIVO D3.1 · ALVO {interaction.dummyHealth}/{interaction.dummyMaximumHealth}</span>
+            <strong>{interaction.dummyDefeated ? 'TREINO CONCLUÍDO' : 'ENCONTRE A ESPADA'}</strong>
+            <small>{interaction.dummyDefeated ? 'Boneco neutralizado' : 'Golpes rápidos e deliberados causam dano'}</small>
           </aside>
           <p className="play-notice" role="status">{interaction.status || notice}</p>
         </>
@@ -224,7 +229,7 @@ export function GameShell() {
         </section>
       )}
 
-      <footer className="build-label">BUILD D2.5 · LOCAL · {xrActive ? 'XR ATIVO' : 'DESKTOP'}</footer>
+      <footer className="build-label">BUILD D3.1 · LOCAL · {xrActive ? 'XR ATIVO' : 'DESKTOP'}</footer>
     </main>
   );
 }

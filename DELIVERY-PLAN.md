@@ -155,6 +155,8 @@ O jogador pega um cubo rúnico, troca de mão, solta, arremessa em um alvo e rec
 ### D2.5 — Pausa e conforto dentro do VR
 
 - [x] Menu de pausa é renderizado como painel 3D dentro da sessão WebXR.
+- [x] Ambos os controles projetam linha e cursor; o gatilho ativa exatamente a opção apontada.
+- [x] Textura do painel usa 2048×1440, filtragem sem mipmaps e anisotropia máxima para legibilidade no Quest.
 - [x] Botão de menu esquerdo abre/fecha quando exposto pelo navegador; clique do analógico esquerdo é o fallback.
 - [x] Analógico esquerdo navega verticalmente e ajusta opções horizontalmente.
 - [x] Gatilho confirma continuar, alternar opções, reiniciar sala ou sair do VR.
@@ -190,6 +192,16 @@ O jogador abre a bolsa, guarda uma poção, uma chave e o cubo rúnico, fecha, c
 
 ## 6. D3 — Laboratório de combate estático
 
+### D3.1 — Espada e boneco funcional
+
+- [x] Espada procedural pode ser puxada, guardada, retirada, solta e recuperada.
+- [x] Pegada orienta a lâmina para a frente do controle sem rotação artificial.
+- [x] Ponta da espada usa trajetória varrida para não atravessar o alvo entre frames.
+- [x] Tremores curtos e movimento lento não causam dano.
+- [x] Boneco recebe no máximo um dano por janela, reage, perde três pontos de vida e cai ao ser derrotado.
+- [x] Áudio, haptics, status e equivalência desktop comunicam cada golpe válido.
+- [ ] Homologar sensação do limiar de velocidade e alcance da lâmina no Meta Quest.
+
 ### Experiência
 
 O jogador retira espada e escudo, ataca um boneco, bloqueia um golpe mecânico, executa um parry e quebra o alvo. Um painel mostra somente feedback útil e oferece repetição.
@@ -207,8 +219,8 @@ O jogador retira espada e escudo, ataca um boneco, bloqueia um golpe mecânico, 
 
 ### Gate
 
-- [ ] Tremor rápido não supera golpe deliberado.
-- [ ] Um swing não causa dano por frame.
+- [x] Tremor rápido não supera golpe deliberado.
+- [x] Um swing não causa dano por frame.
 - [ ] Escudo só bloqueia pelo lado e ângulo válidos.
 - [ ] Parry depende de janela, não de contato permanente.
 - [ ] Arma nunca fica presa permanentemente no cenário.
