@@ -4,6 +4,7 @@ import {
   POTION_DRINK_DISTANCE,
   POTION_DRINK_HOLD_SECONDS,
   POTION_DRINK_TILT_DOT,
+  POTION_WORLD_SCALE,
   applyNonLethalHazard,
   healPlayer,
   shouldDrinkPotion,
@@ -24,4 +25,8 @@ test('potion heals once without exceeding maximum health', () => {
 test('training hazard damages the player but never kills', () => {
   assert.equal(applyNonLethalHazard(3), 2);
   assert.equal(applyNonLethalHazard(1), 1);
+});
+
+test('potion uses a comfortable hand-sized world scale', () => {
+  assert.ok(POTION_WORLD_SCALE >= 0.5 && POTION_WORLD_SCALE <= 0.65);
 });

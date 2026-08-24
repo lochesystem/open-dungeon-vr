@@ -17,6 +17,13 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D2 — Bolsa da aventura.
 
+## [0.5.1] — 2026-08-24
+
+### Corrigido
+
+- Frasco da poção foi reduzido para 58% do tamanho anterior no pedestal, durante o puxão e na mão.
+- Raio físico e de seleção foi ajustado ao novo tamanho, enquanto a prévia já compacta do inventário foi preservada.
+
 ## [0.5.0] — 2026-08-24
 
 ### Adicionado

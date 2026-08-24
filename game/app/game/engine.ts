@@ -11,7 +11,7 @@ import { applyDeadzone, clampFrameDelta, movementVelocity, rigPositionForTracked
 import { captureGripRotationOffset, heldObjectRotation } from './grip';
 import { INVENTORY_PREVIEW_SCALE, inventoryPreviewYaw } from './inventoryPreview';
 import { canInsertMissionKey, doorBlocksPassage } from './missionDoor';
-import { applyNonLethalHazard, healPlayer, shouldDrinkPotion } from './potion';
+import { POTION_WORLD_SCALE, applyNonLethalHazard, healPlayer, shouldDrinkPotion } from './potion';
 import { remoteGrabDistance, remotePullDuration, remotePullProgress } from './remoteGrab';
 import {
   INITIAL_OBJECT_STATE,
@@ -163,6 +163,7 @@ type ItemRuntime = {
   home: THREE.Vector3;
   radius: number;
   inventoryScale: number;
+  worldScale: number;
   velocity: THREE.Vector3;
   previousPosition: THREE.Vector3;
   sleeping: boolean;
@@ -269,7 +270,7 @@ export class OpenDungeonEngine {
       'key', 'Chave da passagem', interactables.missionKey, interactables.keyMaterial, KEY_HOME, 0.18, INVENTORY_PREVIEW_SCALE.key,
     ));
     this.items.set('potion', this.createItemRuntime(
-      'potion', 'Poção restauradora', interactables.potion, interactables.potionMaterial, POTION_HOME, 0.16, INVENTORY_PREVIEW_SCALE.potion,
+      'potion', 'Poção restauradora', interactables.potion, interactables.potionMaterial, POTION_HOME, 0.1, INVENTORY_PREVIEW_SCALE.potion, POTION_WORLD_SCALE,
     ));
     this.door = interactables.door;
     this.lockSocket = interactables.lockSocket;
@@ -392,6 +393,7 @@ export class OpenDungeonEngine {
     home: THREE.Vector3,
     radius: number,
     inventoryScale: number,
+    worldScale = 1,
   ): ItemRuntime {
     return {
       id,
@@ -402,6 +404,7 @@ export class OpenDungeonEngine {
       home: home.clone(),
       radius,
       inventoryScale,
+      worldScale,
       velocity: new THREE.Vector3(),
       previousPosition: new THREE.Vector3(),
       sleeping: true,
@@ -1176,7 +1179,7 @@ export class OpenDungeonEngine {
     }
 
     item.object.visible = true;
-    item.object.scale.setScalar(1);
+    item.object.scale.setScalar(item.worldScale);
     if (item.state.holder) {
       const holder = item.state.holder;
       const heldPosition = this.heldObjectPosition(holder, item);
@@ -1464,7 +1467,7 @@ export class OpenDungeonEngine {
     this.captureGripRotation(holder, item);
     item.state = retrieved;
     item.object.visible = true;
-    item.object.scale.setScalar(1);
+    item.object.scale.setScalar(item.worldScale);
     item.sleeping = false;
     item.velocity.set(0, 0, 0);
     this.poseHistory.set(holder, []);
@@ -1551,7 +1554,7 @@ export class OpenDungeonEngine {
     this.captureGripRotation(holder, item);
     item.state = claimObject(item.state, holder);
     item.object.visible = true;
-    item.object.scale.setScalar(1);
+    item.object.scale.setScalar(item.worldScale);
     item.sleeping = false;
     item.velocity.set(0, 0, 0);
     this.poseHistory.set(holder, []);
@@ -1678,7 +1681,7 @@ export class OpenDungeonEngine {
     item.velocity.set(0, 0, 0);
     item.object.position.copy(item.home);
     item.object.rotation.set(0.12, item.id === 'cube' ? Math.PI / 4 : 0.3, item.id === 'key' ? -0.08 : 0);
-    item.object.scale.setScalar(1);
+    item.object.scale.setScalar(item.worldScale);
     item.object.visible = true;
   }
 

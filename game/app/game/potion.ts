@@ -1,6 +1,7 @@
 export const POTION_DRINK_DISTANCE = 0.24;
 export const POTION_DRINK_TILT_DOT = 0.38;
 export const POTION_DRINK_HOLD_SECONDS = 0.32;
+export const POTION_WORLD_SCALE = 0.58;
 
 export function shouldDrinkPotion(distanceToMouth: number, uprightDot: number, heldSeconds: number): boolean {
   return Number.isFinite(distanceToMouth + uprightDot + heldSeconds)
