@@ -16,6 +16,7 @@ export function GameShell() {
   const [interaction, setInteraction] = useState<InteractionSnapshot>({
     canGrab: false,
     heldBy: null,
+    storedSlot: null,
     targetHits: 0,
     status: 'Encontre o cubo rúnico sobre o pedestal.',
   });
@@ -109,7 +110,7 @@ export function GameShell() {
           <div className="foundation-list" aria-label="Recursos desta entrega">
             <span>01 · Mãos XR</span>
             <span>02 · Cubo físico</span>
-            <span>03 · Alvo rúnico</span>
+            <span>03 · Bolsa de cintura</span>
           </div>
           <p className="notice" role="status">{notice}</p>
         </section>
@@ -125,14 +126,15 @@ export function GameShell() {
             <span><kbd>←</kbd><kbd>→</kbd> olhar</span>
             <span><kbd>E</kbd> pegar / soltar</span>
             <span><kbd>F</kbd> arremessar</span>
+            <span><kbd>B</kbd> guardar / retirar</span>
             <span><kbd>R</kbd> recuperar cubo</span>
             <span><kbd>H</kbd> hitboxes</span>
             <span><kbd>ESC</kbd> pausar</span>
           </aside>
           <aside className="objective-card" aria-label="Objetivo da sala">
-            <span>OBJETIVO D1</span>
-            <strong>{interaction.targetHits > 0 ? 'ALVO ATINGIDO' : 'ACERTE O ALVO RÚNICO'}</strong>
-            <small>{interaction.heldBy ? 'Cubo em mãos' : interaction.canGrab ? 'Cubo ao alcance' : 'Procure o pedestal'}</small>
+            <span>OBJETIVO D2.1</span>
+            <strong>{interaction.storedSlot !== null ? 'CUBO GUARDADO' : interaction.targetHits > 0 ? 'ALVO ATINGIDO' : 'USE A BOLSA'}</strong>
+            <small>{interaction.storedSlot !== null ? `Slot ${interaction.storedSlot + 1} ocupado` : interaction.heldBy ? 'Leve o cubo à cintura' : interaction.canGrab ? 'Cubo ao alcance' : 'Procure o pedestal'}</small>
           </aside>
           <p className="play-notice" role="status">{interaction.status || notice}</p>
         </>
@@ -151,7 +153,7 @@ export function GameShell() {
         </section>
       )}
 
-      <footer className="build-label">BUILD D1 · LOCAL · {xrActive ? 'XR ATIVO' : 'DESKTOP'}</footer>
+      <footer className="build-label">BUILD D2.1 · LOCAL · {xrActive ? 'XR ATIVO' : 'DESKTOP'}</footer>
     </main>
   );
 }

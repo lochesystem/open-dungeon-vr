@@ -17,7 +17,9 @@ import {
   computeThrowVelocity,
   registerTargetHit,
   releaseObject,
+  retrieveObject,
   shouldRecoverObject,
+  storeObject,
   sweptTargetHit,
 } from './objectInteraction';
 import { createVrSessionInit } from './xrSession';
@@ -25,6 +27,7 @@ import { createVrSessionInit } from './xrSession';
 export type InteractionSnapshot = {
   canGrab: boolean;
   heldBy: Holder | null;
+  storedSlot: number | null;
   targetHits: number;
   status: string;
 };
@@ -42,6 +45,8 @@ const TURN_SPEED = 1.85;
 const PLAYER_RADIUS = 0.32;
 const CUBE_RADIUS = 0.22;
 const GRAB_DISTANCE = 0.58;
+const BAG_SLOT_DISTANCE = 0.3;
+const BAG_SLOT_COUNT = 3;
 const DESKTOP_REACH = 3.2;
 const ROOM_BOUNDS: CollisionBounds = { minX: -11.7, maxX: 11.7, minZ: -11.7, maxZ: 11.7 };
 const CUBE_HOME = new THREE.Vector3(3, 1.27, 4.2);
@@ -107,6 +112,8 @@ export class OpenDungeonEngine {
   private readonly collisionDebug = new THREE.Group();
   private readonly playerColliderDebug = new THREE.Mesh();
   private readonly worldPosition = new THREE.Vector3();
+  private readonly handPosition = new THREE.Vector3();
+  private readonly slotPosition = new THREE.Vector3();
   private readonly worldQuaternion = new THREE.Quaternion();
   private readonly objectVelocity = new THREE.Vector3();
   private readonly previousObjectPosition = new THREE.Vector3();
@@ -114,6 +121,10 @@ export class OpenDungeonEngine {
   private readonly controllers = new Map<Holder, THREE.Group>();
   private readonly poseHistory = new Map<Holder, PoseSample[]>();
   private readonly controllerListeners: Array<{ controller: THREE.Group; start: () => void; end: () => void }> = [];
+  private readonly adventureBag = new THREE.Group();
+  private readonly bagFlap = new THREE.Group();
+  private readonly bagSlots: THREE.Mesh[] = [];
+  private readonly bagSlotMaterials: THREE.MeshStandardMaterial[] = [];
   private readonly runeCube: THREE.Mesh;
   private readonly cubeMaterial: THREE.MeshStandardMaterial;
   private readonly targetMaterial: THREE.MeshStandardMaterial;
@@ -133,6 +144,8 @@ export class OpenDungeonEngine {
   private disposed = false;
   private readonly quest: boolean;
   private xrOriginPending = false;
+  private bagOpenAmount = 0;
+  private desktopBagOpenSeconds = 0;
 
   constructor(container: HTMLElement, options: EngineOptions = {}) {
     this.options = options;
@@ -166,6 +179,7 @@ export class OpenDungeonEngine {
     this.targetMaterial = interactables.targetMaterial;
     this.targetCore = interactables.targetCore;
     this.buildControllers();
+    this.buildAdventureBag();
     this.buildCollisionDebug();
     this.resize();
     window.addEventListener('resize', this.resize);
@@ -432,7 +446,7 @@ export class OpenDungeonEngine {
         return resolvedHolder;
       };
       const start = () => this.tryControllerGrab(activeHolder());
-      const end = () => this.releaseHeldObject(activeHolder(), true);
+      const end = () => this.finishControllerGrab(activeHolder());
       controller.addEventListener('selectstart', start);
       controller.addEventListener('selectend', end);
       this.controllerListeners.push({ controller, start, end });
@@ -441,6 +455,51 @@ export class OpenDungeonEngine {
       this.playerRig.add(controller);
     });
     this.poseHistory.set('desktop', []);
+  }
+
+  private buildAdventureBag() {
+    this.adventureBag.name = 'adventure-bag';
+    const leather = this.material({ color: 0x70492f, roughness: 0.84, metalness: 0.04 });
+    const darkLeather = this.material({ color: 0x2c211a, roughness: 0.9, metalness: 0.02 });
+    const bronze = this.material({ color: 0xb77b3e, roughness: 0.38, metalness: 0.72 });
+
+    const body = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.76, 0.34, 0.22)), leather);
+    body.position.y = -0.02;
+    this.adventureBag.add(body);
+
+    const lowerTrim = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.8, 0.055, 0.245)), darkLeather);
+    lowerTrim.position.y = -0.18;
+    this.adventureBag.add(lowerTrim);
+
+    this.bagFlap.position.set(0, 0.16, 0.1);
+    const flap = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.78, 0.08, 0.25)), leather);
+    flap.position.set(0, 0, -0.1);
+    this.bagFlap.add(flap);
+    const clasp = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.1, 0.11, 0.035)), bronze);
+    clasp.position.set(0, -0.055, -0.235);
+    this.bagFlap.add(clasp);
+    this.adventureBag.add(this.bagFlap);
+
+    const slotGeometry = this.geometry(new THREE.TorusGeometry(0.068, 0.012, 8, 24));
+    for (let index = 0; index < BAG_SLOT_COUNT; index += 1) {
+      const material = this.material({
+        color: 0x51e6b8,
+        emissive: 0x123c32,
+        emissiveIntensity: 0.5,
+        roughness: 0.3,
+        metalness: 0.42,
+      });
+      const slot = new THREE.Mesh(slotGeometry, material);
+      slot.name = `bag-slot-${index + 1}`;
+      slot.position.set((index - 1) * 0.22, 0.065, -0.135);
+      slot.visible = false;
+      this.bagSlots.push(slot);
+      this.bagSlotMaterials.push(material);
+      this.adventureBag.add(slot);
+    }
+
+    this.playerRig.add(this.adventureBag);
+    this.updateBagTransform(0);
   }
 
   private buildCollisionDebug() {
@@ -506,6 +565,7 @@ export class OpenDungeonEngine {
     }
     if (event.code === 'KeyF') this.releaseHeldObject('desktop', true);
     if (event.code === 'KeyR') this.resetObject('Cubo devolvido ao pedestal.');
+    if (event.code === 'KeyB') this.toggleDesktopBag();
   };
 
   private readonly onKeyUp = (event: KeyboardEvent) => {
@@ -600,10 +660,29 @@ export class OpenDungeonEngine {
     this.playerRig.rotation.y = this.yaw;
     this.playerColliderDebug.position.x = resolved.x;
     this.playerColliderDebug.position.z = resolved.z;
+    this.updateBagTransform(delta);
     this.updateAdventureObject(delta, nowSeconds);
   }
 
   private updateAdventureObject(delta: number, nowSeconds: number) {
+    if (this.objectState.storedSlot !== null) {
+      const slot = this.bagSlots[this.objectState.storedSlot];
+      if (slot) {
+        slot.getWorldPosition(this.worldPosition);
+        this.runeCube.position.copy(this.worldPosition);
+        this.runeCube.rotation.set(0, this.animationSeconds * 0.7, 0);
+      }
+      this.runeCube.scale.setScalar(0.34);
+      this.runeCube.visible = this.bagOpenAmount > 0.12;
+      this.objectVelocity.set(0, 0, 0);
+      this.objectSleeping = true;
+      this.cubeMaterial.emissiveIntensity = 2.2;
+      this.emitInteraction(`Cubo guardado no slot ${this.objectState.storedSlot + 1} da bolsa.`);
+      return;
+    }
+
+    this.runeCube.visible = true;
+    this.runeCube.scale.setScalar(1);
     if (this.objectState.holder) {
       const heldPosition = this.heldObjectPosition(this.objectState.holder);
       this.runeCube.position.copy(heldPosition);
@@ -681,6 +760,122 @@ export class OpenDungeonEngine {
     this.emitInteraction(canGrab ? 'Cubo ao alcance · pressione E para pegar.' : 'Aproxime-se do cubo rúnico.');
   }
 
+  private updateBagTransform(delta: number) {
+    const headHeight = THREE.MathUtils.clamp(this.camera.position.y, 1.15, 1.95);
+    this.adventureBag.position.set(
+      this.camera.position.x + 0.42,
+      Math.max(0.58, headHeight - 0.78),
+      this.camera.position.z + 0.03,
+    );
+    this.desktopBagOpenSeconds = Math.max(0, this.desktopBagOpenSeconds - delta);
+    this.scene.updateMatrixWorld(true);
+
+    this.adventureBag.getWorldPosition(this.worldPosition);
+    let handNear = false;
+    if (this.renderer.xr.isPresenting) {
+      for (const controller of this.controllers.values()) {
+        controller.getWorldPosition(this.handPosition);
+        if (this.handPosition.distanceTo(this.worldPosition) <= 0.62) {
+          handNear = true;
+          break;
+        }
+      }
+    }
+
+    const target = handNear || this.desktopBagOpenSeconds > 0 ? 1 : 0;
+    const blend = delta > 0 ? 1 - Math.exp(-10 * delta) : 1;
+    this.bagOpenAmount += (target - this.bagOpenAmount) * blend;
+    this.bagFlap.rotation.x = -this.bagOpenAmount * 1.2;
+    this.bagSlots.forEach((slot) => { slot.visible = this.bagOpenAmount > 0.08; });
+
+    for (let index = 0; index < this.bagSlotMaterials.length; index += 1) {
+      const material = this.bagSlotMaterials[index];
+      const stored = this.objectState.storedSlot === index;
+      material.emissiveIntensity = stored ? 2.6 : 0.5;
+      material.color.setHex(stored ? 0xffc56e : 0x51e6b8);
+    }
+
+    const holder = this.objectState.holder;
+    if (holder === 'left' || holder === 'right') {
+      const nearest = this.nearestBagSlot(holder);
+      if (nearest !== null) {
+        this.bagSlotMaterials[nearest].emissiveIntensity = 3.4;
+        this.bagSlotMaterials[nearest].color.setHex(0xffffff);
+      }
+    }
+  }
+
+  private nearestBagSlot(holder: 'left' | 'right') {
+    const controller = this.controllers.get(holder);
+    if (!controller || this.bagOpenAmount < 0.08) return null;
+    controller.getWorldPosition(this.handPosition);
+    let nearest: number | null = null;
+    let nearestDistance = BAG_SLOT_DISTANCE;
+    for (let index = 0; index < this.bagSlots.length; index += 1) {
+      this.bagSlots[index].getWorldPosition(this.slotPosition);
+      const distance = this.handPosition.distanceTo(this.slotPosition);
+      if (distance <= nearestDistance) {
+        nearest = index;
+        nearestDistance = distance;
+      }
+    }
+    return nearest;
+  }
+
+  private finishControllerGrab(holder: 'left' | 'right') {
+    if (this.objectState.holder !== holder) return;
+    const slot = this.nearestBagSlot(holder);
+    if (slot !== null) {
+      this.storeHeldObject(holder, slot);
+      return;
+    }
+    this.releaseHeldObject(holder, true);
+  }
+
+  private storeHeldObject(holder: Holder, slot: number) {
+    const stored = storeObject(this.objectState, holder, slot, BAG_SLOT_COUNT);
+    if (stored === this.objectState) return;
+    this.objectState = stored;
+    this.objectSleeping = true;
+    this.objectVelocity.set(0, 0, 0);
+    this.poseHistory.set(holder, []);
+    this.desktopBagOpenSeconds = 1.3;
+    this.playTone(440, 0.08, 0.055);
+    this.playTone(660, 0.1, 0.04, 0.055);
+    this.pulseController(holder, 0.34, 55);
+    this.emitInteraction(`Cubo guardado no slot ${slot + 1}.`);
+  }
+
+  private retrieveStoredObject(holder: Holder) {
+    const slot = this.objectState.storedSlot;
+    if (slot === null) return;
+    const retrieved = retrieveObject(this.objectState, holder, slot);
+    if (retrieved === this.objectState) return;
+    this.objectState = retrieved;
+    this.runeCube.visible = true;
+    this.runeCube.scale.setScalar(1);
+    this.objectSleeping = false;
+    this.objectVelocity.set(0, 0, 0);
+    this.poseHistory.set(holder, []);
+    this.desktopBagOpenSeconds = 1.1;
+    this.playTone(660, 0.07, 0.055);
+    this.pulseController(holder, 0.28, 45);
+    this.emitInteraction(`Cubo retirado do slot ${slot + 1}.`);
+  }
+
+  private toggleDesktopBag() {
+    this.desktopBagOpenSeconds = 1.6;
+    if (this.objectState.holder === 'desktop') {
+      this.storeHeldObject('desktop', 0);
+      return;
+    }
+    if (this.objectState.storedSlot !== null) {
+      this.retrieveStoredObject('desktop');
+      return;
+    }
+    this.emitInteraction('Pegue o cubo antes de guardá-lo na bolsa.');
+  }
+
   private heldObjectPosition(holder: Holder) {
     if (holder === 'desktop') {
       this.camera.getWorldPosition(this.worldPosition);
@@ -704,6 +899,10 @@ export class OpenDungeonEngine {
   }
 
   private tryDesktopGrab() {
+    if (this.objectState.storedSlot !== null) {
+      this.emitInteraction('Pressione B para retirar o cubo da bolsa.');
+      return;
+    }
     if (this.renderer.xr.isPresenting || !this.canDesktopGrab()) {
       this.emitInteraction('Mire no cubo e aproxime-se para pegá-lo.');
       return;
@@ -712,6 +911,14 @@ export class OpenDungeonEngine {
   }
 
   private tryControllerGrab(holder: 'left' | 'right') {
+    if (this.objectState.storedSlot !== null) {
+      if (this.nearestBagSlot(holder) === this.objectState.storedSlot) {
+        this.retrieveStoredObject(holder);
+      } else {
+        this.emitInteraction('Aproxime a mão do slot iluminado da bolsa.');
+      }
+      return;
+    }
     const controller = this.controllers.get(holder);
     if (!controller) return;
     controller.getWorldPosition(this.worldPosition);
@@ -724,6 +931,8 @@ export class OpenDungeonEngine {
 
   private claimHeldObject(holder: Holder) {
     this.objectState = claimObject(this.objectState, holder);
+    this.runeCube.visible = true;
+    this.runeCube.scale.setScalar(1);
     this.objectSleeping = false;
     this.objectVelocity.set(0, 0, 0);
     this.poseHistory.set(holder, []);
@@ -757,7 +966,7 @@ export class OpenDungeonEngine {
   }
 
   private canDesktopGrab() {
-    if (this.objectState.holder) return false;
+    if (this.objectState.holder || this.objectState.storedSlot !== null) return false;
     this.scene.updateMatrixWorld(true);
     this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
     const hit = this.raycaster.intersectObject(this.runeCube, false)[0];
@@ -766,6 +975,12 @@ export class OpenDungeonEngine {
 
   private anyControllerCanGrab() {
     if (this.objectState.holder) return false;
+    if (this.objectState.storedSlot !== null) {
+      for (const holder of ['left', 'right'] as const) {
+        if (this.nearestBagSlot(holder) === this.objectState.storedSlot) return true;
+      }
+      return false;
+    }
     for (const controller of this.controllers.values()) {
       controller.getWorldPosition(this.worldPosition);
       if (this.worldPosition.distanceTo(this.runeCube.position) <= GRAB_DISTANCE) return true;
@@ -781,6 +996,8 @@ export class OpenDungeonEngine {
     this.objectVelocity.set(0, 0, 0);
     this.runeCube.position.copy(CUBE_HOME);
     this.runeCube.rotation.set(0, Math.PI / 4, 0);
+    this.runeCube.scale.setScalar(1);
+    this.runeCube.visible = true;
     this.targetCore.scale.setScalar(1);
     this.poseHistory.forEach((history) => history.splice(0));
     this.emitInteraction(status);
@@ -790,6 +1007,7 @@ export class OpenDungeonEngine {
     const snapshot: InteractionSnapshot = {
       canGrab: this.renderer.xr.isPresenting ? this.anyControllerCanGrab() : this.canDesktopGrab(),
       heldBy: this.objectState.holder,
+      storedSlot: this.objectState.storedSlot,
       targetHits: this.targetHits,
       status,
     };

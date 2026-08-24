@@ -110,6 +110,16 @@ O jogador pega um cubo rúnico, troca de mão, solta, arremessa em um alvo e rec
 
 ## 5. D2 — Bolsa da aventura
 
+### D2.1 — Primeira fatia funcional
+
+- [x] Bolsa procedural presa à cintura e alcançável pelas duas mãos.
+- [x] Tampa abre por proximidade e desativa a física do item guardado.
+- [x] Três sockets físicos oferecem snap assistido e feedback visual.
+- [x] Cubo entra e sai da bolsa sem duplicar autoridade entre mundo, slot e mão.
+- [x] Guardar e retirar possuem áudio, haptics e equivalência desktop pela tecla `B`.
+- [x] Regras de armazenamento, slot inválido e retirada incorreta possuem testes headless.
+- [ ] Validar repetição prolongada, alcance sentado e ergonomia no Quest.
+
 ### Experiência
 
 O jogador abre a bolsa, guarda uma poção, uma chave e o cubo rúnico, fecha, caminha, reabre e recupera cada item. Usa a poção, abre uma fechadura com a chave e termina o pequeno desafio.
@@ -320,24 +330,15 @@ O slice não começa do zero: ele amplia uma cadeia já jogável e homologada.
 
 ## 13. Ordem imediata
 
-O próximo trabalho autorizado deve ser **D0 — Fundação executável**. Antes de implementar D1, D0 precisa cumprir seu gate e gerar uma build demonstrável.
-
-Decisões técnicas para D0:
-
-- usar os protótipos locais como referência, não copiar suas engines monolíticas;
-- criar projeto isolado dentro de `open-dungeon-vr`;
-- separar regras, plataforma e apresentação desde o primeiro commit;
-- manter desktop como ambiente rápido de teste;
-- não adicionar backend, banco ou multiplayer ainda;
-- não produzir arte final antes do laboratório suportar descarte e reinício corretos.
+A etapa ativa é **D2 — Bolsa da aventura**. A D2.1 estabelece a ergonomia e a autoridade de um único item; a próxima fatia adiciona categorias reais com poção, chave e moeda sem alterar a regra central já validada.
 
 ## 14. Registro de andamento
 
 | Entrega | Estado | Evidência |
 | --- | --- | --- |
 | D0 — Fundação | Concluída | `game/`; testes, lint, build e HTTP 200 em 24/08/2026 |
-| D1 — Mãos e objeto | Não iniciada | — |
-| D2 — Bolsa e itens | Não iniciada | — |
+| D1 — Mãos e objeto | Concluída | Grab, handoff, arremesso, alvo, recuperação e homologação inicial no Quest |
+| D2 — Bolsa e itens | Em andamento | D2.1: bolsa de cintura, três slots e armazenamento autoritativo do cubo |
 | D3 — Combate estático | Não iniciada | — |
 | D4 — Primeiro inimigo | Não iniciada | — |
 | D5 — Sala completa | Não iniciada | — |

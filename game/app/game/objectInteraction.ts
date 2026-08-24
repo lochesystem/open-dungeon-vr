@@ -9,18 +9,39 @@ export type Holder = 'desktop' | 'left' | 'right';
 
 export type AdventureObjectState = {
   holder: Holder | null;
+  storedSlot: number | null;
   throwId: number;
   targetHitThrowId: number | null;
 };
 
 export const INITIAL_OBJECT_STATE: AdventureObjectState = {
   holder: null,
+  storedSlot: null,
   throwId: 0,
   targetHitThrowId: null,
 };
 
 export function claimObject(state: AdventureObjectState, holder: Holder): AdventureObjectState {
-  return { ...state, holder };
+  return { ...state, holder, storedSlot: null };
+}
+
+export function storeObject(
+  state: AdventureObjectState,
+  holder: Holder,
+  slot: number,
+  slotCount: number,
+): AdventureObjectState {
+  if (state.holder !== holder || !Number.isInteger(slot) || slot < 0 || slot >= slotCount) return state;
+  return { ...state, holder: null, storedSlot: slot };
+}
+
+export function retrieveObject(
+  state: AdventureObjectState,
+  holder: Holder,
+  slot: number,
+): AdventureObjectState {
+  if (state.holder || state.storedSlot !== slot) return state;
+  return { ...state, holder, storedSlot: null };
 }
 
 export function releaseObject(state: AdventureObjectState, holder: Holder): AdventureObjectState {
@@ -29,7 +50,7 @@ export function releaseObject(state: AdventureObjectState, holder: Holder): Adve
 }
 
 export function registerTargetHit(state: AdventureObjectState): AdventureObjectState {
-  if (state.holder || state.targetHitThrowId === state.throwId) return state;
+  if (state.holder || state.storedSlot !== null || state.targetHitThrowId === state.throwId) return state;
   return { ...state, targetHitThrowId: state.throwId };
 }
 

@@ -17,6 +17,21 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D2 — Bolsa da aventura.
 
+## [0.3.0] — 2026-08-24
+
+### Adicionado
+
+- Primeira fatia funcional da bolsa da aventura, presa à cintura e acompanhando a pose do jogador.
+- Tampa procedural que abre quando uma mão se aproxima e fecha desativando a apresentação física do conteúdo.
+- Três slots físicos com snap assistido, ghost luminoso e indicação do slot ocupado.
+- Armazenamento e retirada do cubo por qualquer mão, com feedback sonoro e háptico.
+- Equivalência desktop pela tecla `B` para guardar e retirar o cubo.
+- Estado autoritativo garante que o cubo exista no mundo, em uma mão ou em um único slot, nunca duplicado.
+
+### Validado
+
+- Testes cobrem armazenamento, retirada, slot inválido e tentativa pelo socket incorreto.
+
 ## [0.2.5] — 2026-08-24
 
 ### Alterado

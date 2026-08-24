@@ -11,8 +11,8 @@ Documentos do projeto:
 
 ## Estado
 
-- Pré-produção com D0 concluída e primeira interação física da D1 executável
-- D1 implementada no desktop e WebXR; stress test físico no Quest ainda pendente
+- D0 e D1 concluídas; D2.1 com primeira bolsa da aventura executável
+- Bolsa de cintura com três slots, armazenamento autoritativo do cubo e equivalência desktop/WebXR
 - Nome de trabalho: **Open Dungeon VR**
 - Produção: **FULL IA**, com aprovação visual e de produto pelo usuário
 - Estratégia: entregas pequenas, executáveis e verticalmente completas
@@ -33,7 +33,7 @@ Validação completa:
 npm run check
 ```
 
-Na versão desktop, use `E` para pegar ou soltar o cubo, `F` para arremessar, `R` para recuperá-lo e `H` para visualizar as hitboxes.
+Na versão desktop, use `E` para pegar ou soltar o cubo, `F` para arremessar, `B` para guardar ou retirar da bolsa, `R` para recuperá-lo e `H` para visualizar as hitboxes.
 
 ## Meta Quest pelo GitHub Pages
 

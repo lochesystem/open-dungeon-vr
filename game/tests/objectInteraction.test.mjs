@@ -6,7 +6,9 @@ import {
   computeThrowVelocity,
   registerTargetHit,
   releaseObject,
+  retrieveObject,
   shouldRecoverObject,
+  storeObject,
   sweptTargetHit,
 } from '../app/game/objectInteraction.ts';
 
@@ -16,6 +18,26 @@ test('handoff keeps exactly one authoritative holder', () => {
   assert.equal(right.holder, 'right');
   assert.equal(releaseObject(right, 'left'), right);
   assert.equal(releaseObject(right, 'right').holder, null);
+});
+
+test('bag storage keeps the cube in exactly one slot or one hand', () => {
+  const held = claimObject(INITIAL_OBJECT_STATE, 'right');
+  const stored = storeObject(held, 'right', 1, 3);
+  assert.equal(stored.holder, null);
+  assert.equal(stored.storedSlot, 1);
+  assert.equal(storeObject(stored, 'left', 2, 3), stored);
+
+  const retrieved = retrieveObject(stored, 'left', 1);
+  assert.equal(retrieved.holder, 'left');
+  assert.equal(retrieved.storedSlot, null);
+});
+
+test('bag rejects invalid slots and retrieval from the wrong socket', () => {
+  const held = claimObject(INITIAL_OBJECT_STATE, 'desktop');
+  assert.equal(storeObject(held, 'desktop', -1, 3), held);
+  assert.equal(storeObject(held, 'desktop', 3, 3), held);
+  const stored = storeObject(held, 'desktop', 0, 3);
+  assert.equal(retrieveObject(stored, 'right', 2), stored);
 });
 
 test('throw velocity uses pose history and caps impossible spikes', () => {
