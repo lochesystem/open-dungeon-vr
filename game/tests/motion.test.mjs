@@ -6,6 +6,7 @@ import {
   clampFrameDelta,
   movementVelocity,
   normalizeMovement,
+  rigPositionForTrackedSpawn,
 } from '../app/game/motion.ts';
 
 test('clamps long and invalid frame deltas', () => {
@@ -33,4 +34,14 @@ test('maps forward input to the camera yaw', () => {
   const west = movementVelocity({ forward: 1, right: 0 }, Math.PI / 2, 4);
   assert.ok(Math.abs(west.x + 4) < 1e-9);
   assert.ok(Math.abs(west.z) < 1e-9);
+});
+
+test('anchors a distant stationary-boundary pose at the intended dungeon spawn', () => {
+  const trackedPose = { x: 37.5, z: -82.25 };
+  const spawn = { x: 0, z: 6.8 };
+  const rig = rigPositionForTrackedSpawn(trackedPose, spawn);
+
+  assert.deepEqual(rig, { x: -37.5, z: 89.05 });
+  assert.ok(Math.abs(rig.x + trackedPose.x - spawn.x) < 1e-9);
+  assert.ok(Math.abs(rig.z + trackedPose.z - spawn.z) < 1e-9);
 });

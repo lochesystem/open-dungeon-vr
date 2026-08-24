@@ -7,7 +7,7 @@ import {
   resolveMovement,
   resolvePosition,
 } from './collision';
-import { applyDeadzone, clampFrameDelta, movementVelocity } from './motion';
+import { applyDeadzone, clampFrameDelta, movementVelocity, rigPositionForTrackedSpawn } from './motion';
 import {
   INITIAL_OBJECT_STATE,
   type AdventureObjectState,
@@ -36,6 +36,7 @@ type EngineOptions = {
 };
 
 const PLAYER_HEIGHT = 1.68;
+const PLAYER_SPAWN = { x: 0, z: 6.8 } as const;
 const MOVE_SPEED = 3.8;
 const TURN_SPEED = 1.85;
 const PLAYER_RADIUS = 0.32;
@@ -132,6 +133,7 @@ export class OpenDungeonEngine {
   private paused = false;
   private disposed = false;
   private readonly quest: boolean;
+  private xrOriginPending = false;
 
   constructor(container: HTMLElement, options: EngineOptions = {}) {
     this.options = options;
@@ -155,7 +157,7 @@ export class OpenDungeonEngine {
     this.scene.background = new THREE.Color(0x0c1519);
     this.scene.fog = new THREE.FogExp2(0x0c1519, 0.022);
     this.camera.position.set(0, PLAYER_HEIGHT, 0);
-    this.playerRig.position.set(0, 0, 6.8);
+    this.playerRig.position.set(PLAYER_SPAWN.x, 0, PLAYER_SPAWN.z);
     this.playerRig.add(this.camera);
     this.scene.add(this.playerRig);
 
@@ -187,7 +189,7 @@ export class OpenDungeonEngine {
   }
 
   private resetPlayerTransform() {
-    this.playerRig.position.set(0, 0, 6.8);
+    this.playerRig.position.set(PLAYER_SPAWN.x, 0, PLAYER_SPAWN.z);
     this.playerRig.rotation.set(0, 0, 0);
     this.camera.position.set(0, PLAYER_HEIGHT, 0);
     this.yaw = 0;
@@ -233,12 +235,14 @@ export class OpenDungeonEngine {
 
   private readonly onXrSessionStart = () => {
     this.resetPlayerTransform();
+    this.xrOriginPending = true;
     this.renderer.setPixelRatio(1);
     this.renderer.xr.setFoveation(0.9);
     this.options.onXrChange?.(true);
   };
 
   private readonly onXrSessionEnd = () => {
+    this.xrOriginPending = false;
     this.resetPlayerTransform();
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.quest ? 1 : 1.5));
     this.resize();
@@ -532,6 +536,16 @@ export class OpenDungeonEngine {
     }
 
     this.renderer.render(this.scene, this.camera);
+    if (this.xrOriginPending && this.renderer.xr.isPresenting) {
+      const rigPosition = rigPositionForTrackedSpawn(
+        { x: this.camera.position.x, z: this.camera.position.z },
+        PLAYER_SPAWN,
+      );
+      this.playerRig.position.set(rigPosition.x, 0, rigPosition.z);
+      this.playerRig.rotation.set(0, 0, 0);
+      this.yaw = 0;
+      this.xrOriginPending = false;
+    }
     this.frameCount += 1;
     this.statsSeconds += rawDelta;
     if (this.statsSeconds >= 0.5) {
@@ -830,7 +844,10 @@ export class OpenDungeonEngine {
     if (!this.renderer.xr.isPresenting) {
       return { x: this.playerRig.position.x, z: this.playerRig.position.z };
     }
-    this.renderer.xr.getCamera().getWorldPosition(this.worldPosition);
+    // The XR manager's internal ArrayCamera has no playerRig parent. Reading it
+    // directly returns tracking-space coordinates and makes a distant Quest
+    // stationary-boundary origin push the rig farther away every frame.
+    this.camera.getWorldPosition(this.worldPosition);
     return { x: this.worldPosition.x, z: this.worldPosition.z };
   }
 

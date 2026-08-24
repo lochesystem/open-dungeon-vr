@@ -17,6 +17,18 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D2 — Bolsa da aventura.
 
+## [0.2.4] — 2026-08-24
+
+### Corrigido
+
+- Colisão do jogador agora usa a posição mundial da câmera que pertence ao rig, em vez da câmera interna do WebXR em coordenadas de tracking.
+- Origem X/Z fornecida pelo limite fixo do Quest é compensada uma única vez, posicionando a cabeça exatamente no spawn da masmorra.
+- Eliminado o deslocamento acumulativo que empurrava toda a sala para fora da visão enquanto mantinha apenas as mãos visíveis.
+
+### Validado
+
+- Teste automatizado cobre explicitamente uma origem de limite fixo distante do ponto zero.
+
 ## [0.2.3] — 2026-08-24
 
 ### Corrigido
