@@ -329,12 +329,13 @@ A D4.2 fechou o primeiro ciclo ofensivo e abriu caminho para tornar o Guardião 
 ### D4.4 — Visual FULL IA
 
 - [x] Concept aprovado do Guardião Ossário.
-- [x] Candidato v1 e turnaround técnico gerados, versionados e aguardando aprovação.
+- [x] Candidato v1 e turnaround técnico gerados, versionados e aprovados.
+- [x] Candidato de malha modular v1 exportado em GLB e validado automaticamente.
 - [ ] Modelo 3D gerado por IA.
 - [ ] Texturas próprias.
 - [ ] Rig humanoide.
 - [ ] Idle, caminhada, ataque, stagger e morte.
-- [ ] Dois níveis de detalhe para o Quest.
+- [x] Dois níveis de detalhe candidatos para o Quest (4.114 e 1.654 triângulos).
 - [ ] Substituição do blockout sem alterar gameplay.
 
 O gate desta entrega é visual e técnico: o inimigo final deve conservar percepção, locomoção, hitboxes, ataque, dano, stagger, morte e recompensa já validados. A segunda variação de ataque fica para uma etapa posterior de refinamento do combate.
@@ -496,7 +497,7 @@ O slice não começa do zero: ele amplia uma cadeia já jogável e homologada.
 
 ## 13. Ordem imediata
 
-A etapa ativa é **D4 — Primeiro inimigo completo**. A D4.3 fecha o primeiro encontro derrotável; a próxima fatia é **D4.4 — Visual FULL IA**, substituindo o blockout por concept, modelo, texturas, rig, animações e dois LODs sem alterar o gameplay. Segundo ataque, parry e stamina permanecem para uma rodada posterior de refinamento do combate.
+A etapa ativa é **D4.4 — Visual FULL IA**. Concept e turnaround estão aprovados; o candidato de modelo 3D com dois LODs aguarda inspeção visual antes de receber materiais finais, rig, skinning e animações. A substituição do blockout só ocorre depois desses gates, sem alterar o gameplay já validado. Segundo ataque, parry e stamina permanecem para uma rodada posterior de refinamento do combate.
 
 ## 14. Registro de andamento
 
@@ -506,7 +507,7 @@ A etapa ativa é **D4 — Primeiro inimigo completo**. A D4.3 fecha o primeiro e
 | D1 — Mãos e objeto | Concluída | Grab, handoff, arremesso, alvo, recuperação e homologação inicial no Quest |
 | D2 — Bolsa e itens | Concluída | Bolsa 3×2, categorias, poção consumível, chave, recuperação e vida no pulso |
 | D3 — Combate estático | Em andamento | D3.3: espada livre, boneco imortal, escudo e bloqueio direcional |
-| D4 — Primeiro inimigo | Em andamento | D4.3: vida, dano de espada, stagger, morte e runa guardável |
+| D4 — Primeiro inimigo | Em andamento | D4.4: concept aprovado e candidato GLB com dois LODs em inspeção |
 | D5 — Sala completa | Não iniciada | — |
 | D6 — Micro-expedição | Não iniciada | — |
 | D7 — Quest e conforto | Não iniciada | — |

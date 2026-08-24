@@ -13,6 +13,13 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Documentação da URL HTTPS para testes no Meta Quest.
 - Primeiro candidato visual FULL IA do Guardião Ossário, com folha de apresentação, turnaround técnico, prompts e manifesto de proveniência.
 - Concept v1 do Guardião Ossário aprovado e bloqueado como referência para modelo, materiais, rig e LODs.
+- Candidato modular 3D do Guardião Ossário exportado em GLB nos níveis LOD0 e LOD1.
+- Gerador procedural reprodutível, manifesto do modelo, relatório de orçamento e página local de inspeção visual.
+
+### Validado
+
+- LOD0 possui 4.114 triângulos e LOD1 possui 1.654, redução de aproximadamente 60%.
+- Teste verifica cabeçalho GLB, existência dos arquivos, escala, materiais e orçamento dos dois LODs.
 
 ### Planejado
 

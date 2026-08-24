@@ -1,0 +1,16 @@
+{
+  "id": "enemy_ossuary_guardian_v1_model_candidate",
+  "source": "ai-directed-procedural",
+  "generator": "three-gltfexporter",
+  "license": "project-original",
+  "concept": "../../../concepts/ossuary-guardian-v1/ossuary-guardian-turnaround-v1.png",
+  "script": "../../../scripts/generate-ossuary-guardian.mjs",
+  "targetRig": "humanoid_large_v1",
+  "lods": [
+    "ossuary-guardian-lod0.glb",
+    "ossuary-guardian-lod1.glb"
+  ],
+  "qaReport": "qa-report.json",
+  "status": "candidate-awaiting-visual-approval",
+  "approved": false
+}

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QA — Guardião Ossário</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; overflow: hidden; color: #e9e1ca; background: #101515; font-family: Inter, system-ui, sans-serif; }
+      canvas { display: block; }
+      .panel { position: fixed; z-index: 2; top: 20px; left: 20px; width: min(350px, calc(100vw - 40px)); padding: 16px; border: 1px solid #527069; border-radius: 12px; background: rgba(12, 19, 18, .88); backdrop-filter: blur(10px); }
+      h1 { margin: 0 0 6px; font: 600 18px/1.2 Georgia, serif; }
+      p { margin: 5px 0; color: #aebbb3; font-size: 13px; }
+      .buttons { display: flex; gap: 8px; margin-top: 12px; }
+      button { padding: 8px 13px; color: #dce8df; border: 1px solid #597a70; border-radius: 999px; background: #1d302c; cursor: pointer; }
+      button.active { color: #0a1b17; background: #86d6bd; }
+      #status { margin-top: 10px; color: #86d6bd; }
+    </style>
+  </head>
+  <body>
+    <section class="panel">
+      <h1>Guardião Ossário · modelo v1</h1>
+      <p>Arraste para girar · roda para aproximar · clique no LOD para comparar.</p>
+      <div class="buttons"><button data-lod="0" class="active">LOD0</button><button data-lod="1">LOD1</button></div>
+      <p id="status">Carregando candidato…</p>
+    </section>
+    <script type="module" src="./guardian-preview.js"></script>
+  </body>
+</html>
