@@ -9,6 +9,7 @@ import {
 } from './collision';
 import { applyDeadzone, clampFrameDelta, movementVelocity, rigPositionForTrackedSpawn } from './motion';
 import { captureGripRotationOffset, heldObjectRotation } from './grip';
+import { remoteGrabDistance, remotePullDuration, remotePullProgress } from './remoteGrab';
 import {
   INITIAL_OBJECT_STATE,
   type AdventureObjectState,
@@ -48,6 +49,7 @@ const TURN_SPEED = 1.85;
 const PLAYER_RADIUS = 0.32;
 const CUBE_RADIUS = 0.22;
 const GRAB_DISTANCE = 0.58;
+const REMOTE_GRAB_DISTANCE = 3.5;
 const BAG_SLOT_DISTANCE = 0.22;
 const BAG_SLOT_COUNT = 6;
 const DESKTOP_REACH = 3.2;
@@ -153,6 +155,13 @@ export class OpenDungeonEngine {
   private bagMenuOpen = false;
   private desktopBagOpenSeconds = 0;
   private leftXWasPressed = false;
+  private pullAnimation: {
+    holder: 'left' | 'right';
+    fromPosition: THREE.Vector3;
+    fromRotation: THREE.Quaternion;
+    elapsed: number;
+    duration: number;
+  } | null = null;
 
   constructor(container: HTMLElement, options: EngineOptions = {}) {
     this.options = options;
@@ -712,17 +721,32 @@ export class OpenDungeonEngine {
     this.runeCube.scale.setScalar(1);
     if (this.objectState.holder) {
       const heldPosition = this.heldObjectPosition(this.objectState.holder);
-      this.runeCube.position.copy(heldPosition);
       const holder = this.objectState.holder;
       const holderRotation = this.holderWorldRotation(holder);
       const gripOffset = this.gripRotationOffsets.get(holder);
-      if (holderRotation && gripOffset) {
-        this.runeCube.quaternion.copy(heldObjectRotation(holderRotation, gripOffset));
+      const targetRotation = holderRotation && gripOffset
+        ? heldObjectRotation(holderRotation, gripOffset)
+        : this.runeCube.quaternion.clone();
+      if (this.pullAnimation?.holder === holder) {
+        this.pullAnimation.elapsed += delta;
+        const progress = remotePullProgress(this.pullAnimation.elapsed, this.pullAnimation.duration);
+        this.runeCube.position.lerpVectors(this.pullAnimation.fromPosition, heldPosition, progress);
+        this.runeCube.quaternion.slerpQuaternions(this.pullAnimation.fromRotation, targetRotation, progress);
+        if (progress >= 1) {
+          this.pullAnimation = null;
+          this.playTone(610, 0.07, 0.045);
+          this.pulseController(holder, 0.24, 42);
+        }
+      } else {
+        this.runeCube.position.copy(heldPosition);
+        this.runeCube.quaternion.copy(targetRotation);
       }
       this.objectVelocity.set(0, 0, 0);
-      this.recordPose(holder, heldPosition, nowSeconds);
+      this.recordPose(holder, this.runeCube.position, nowSeconds);
       this.cubeMaterial.emissiveIntensity = 2.6;
-      this.emitInteraction(`Cubo seguro pela mão ${this.objectState.holder === 'desktop' ? 'virtual' : this.objectState.holder}.`);
+      this.emitInteraction(this.pullAnimation
+        ? `Cubo atraído para a mão ${holder}.`
+        : `Cubo seguro pela mão ${holder === 'desktop' ? 'virtual' : holder}.`);
       return;
     }
 
@@ -909,6 +933,7 @@ export class OpenDungeonEngine {
     this.objectVelocity.set(0, 0, 0);
     this.poseHistory.set(holder, []);
     this.gripRotationOffsets.delete(holder);
+    if (this.pullAnimation?.holder === holder) this.pullAnimation = null;
     this.desktopBagOpenSeconds = 1.3;
     this.playTone(440, 0.08, 0.055);
     this.playTone(660, 0.1, 0.04, 0.055);
@@ -1001,14 +1026,22 @@ export class OpenDungeonEngine {
     const controller = this.controllers.get(holder);
     if (!controller) return;
     controller.getWorldPosition(this.worldPosition);
-    if (this.worldPosition.distanceTo(this.runeCube.position) > GRAB_DISTANCE) {
-      this.emitInteraction('A mão precisa estar mais perto do cubo.');
+    const directDistance = this.worldPosition.distanceTo(this.runeCube.position);
+    if (directDistance <= GRAB_DISTANCE) {
+      this.claimHeldObject(holder);
       return;
     }
-    this.claimHeldObject(holder);
+    const pullDistance = this.controllerRemoteGrabDistance(holder);
+    if (pullDistance === null) {
+      this.emitInteraction('Aponte a mão para o cubo e pressione o gatilho para puxá-lo.');
+      return;
+    }
+    this.claimHeldObject(holder, pullDistance);
   }
 
-  private claimHeldObject(holder: Holder) {
+  private claimHeldObject(holder: Holder, pullDistance?: number) {
+    const pullFromPosition = this.runeCube.position.clone();
+    const pullFromRotation = this.runeCube.quaternion.clone();
     this.captureGripRotation(holder);
     this.objectState = claimObject(this.objectState, holder);
     this.runeCube.visible = true;
@@ -1016,6 +1049,15 @@ export class OpenDungeonEngine {
     this.objectSleeping = false;
     this.objectVelocity.set(0, 0, 0);
     this.poseHistory.set(holder, []);
+    if ((holder === 'left' || holder === 'right') && pullDistance !== undefined) {
+      this.pullAnimation = {
+        holder,
+        fromPosition: pullFromPosition,
+        fromRotation: pullFromRotation,
+        elapsed: 0,
+        duration: remotePullDuration(pullDistance),
+      };
+    }
     this.playTone(330, 0.07, 0.055);
     this.pulseController(holder, 0.26, 45);
     this.emitInteraction(holder === 'desktop' ? 'Cubo pego · E solta, F arremessa.' : `Cubo pego pela mão ${holder}.`);
@@ -1032,12 +1074,15 @@ export class OpenDungeonEngine {
 
   private releaseHeldObject(holder: Holder, throwObject: boolean) {
     if (this.objectState.holder !== holder) return;
+    const wasPulling = this.pullAnimation?.holder === holder;
+    if (wasPulling) this.pullAnimation = null;
+    const shouldThrow = throwObject && !wasPulling;
     const released = releaseObject(this.objectState, holder);
     if (released === this.objectState) return;
     this.objectState = released;
     this.objectSleeping = false;
 
-    if (throwObject) {
+    if (shouldThrow) {
       const velocity = computeThrowVelocity(this.poseHistory.get(holder) ?? []);
       this.objectVelocity.set(velocity.x, velocity.y, velocity.z);
       if (holder === 'desktop') {
@@ -1050,9 +1095,9 @@ export class OpenDungeonEngine {
     }
     this.poseHistory.set(holder, []);
     this.gripRotationOffsets.delete(holder);
-    this.playTone(throwObject ? 210 : 260, 0.08, 0.045);
-    this.pulseController(holder, throwObject ? 0.38 : 0.18, throwObject ? 65 : 35);
-    this.emitInteraction(throwObject ? 'Cubo lançado.' : 'Cubo solto.');
+    this.playTone(shouldThrow ? 210 : 260, 0.08, 0.045);
+    this.pulseController(holder, shouldThrow ? 0.38 : 0.18, shouldThrow ? 65 : 35);
+    this.emitInteraction(shouldThrow ? 'Cubo lançado.' : 'Cubo solto.');
   }
 
   private canDesktopGrab() {
@@ -1075,6 +1120,9 @@ export class OpenDungeonEngine {
       controller.getWorldPosition(this.worldPosition);
       if (this.worldPosition.distanceTo(this.runeCube.position) <= GRAB_DISTANCE) return true;
     }
+    for (const holder of ['left', 'right'] as const) {
+      if (this.controllerRemoteGrabDistance(holder) !== null) return true;
+    }
     return false;
   }
 
@@ -1094,6 +1142,7 @@ export class OpenDungeonEngine {
     this.targetCore.scale.setScalar(1);
     this.poseHistory.forEach((history) => history.splice(0));
     this.gripRotationOffsets.clear();
+    this.pullAnimation = null;
     this.emitInteraction(status);
   }
 
@@ -1165,5 +1214,20 @@ export class OpenDungeonEngine {
     const source = holder === 'desktop' ? this.camera : this.controllers.get(holder);
     if (!source) return null;
     return source.getWorldQuaternion(new THREE.Quaternion());
+  }
+
+  private controllerRemoteGrabDistance(holder: 'left' | 'right') {
+    const controller = this.controllers.get(holder);
+    if (!controller) return null;
+    controller.getWorldPosition(this.handPosition);
+    controller.getWorldQuaternion(this.worldQuaternion);
+    const forward = this.slotPosition.set(0, 0, -1).applyQuaternion(this.worldQuaternion);
+    return remoteGrabDistance(
+      this.handPosition,
+      forward,
+      this.runeCube.position,
+      CUBE_RADIUS,
+      REMOTE_GRAB_DISTANCE,
+    );
   }
 }

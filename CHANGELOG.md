@@ -17,6 +17,17 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D2 — Bolsa da aventura.
 
+## [0.3.4] — 2026-08-24
+
+### Adicionado
+
+- Mira assistida das mãos permite puxar o cubo de até 3,5 m sem precisar agachar ou encostar nele.
+- Item percorre uma animação curta e suavizada até a mão, com duração proporcional à distância e feedback háptico ao encaixar.
+
+### Alterado
+
+- Soltar o gatilho durante a atração interrompe o puxão sem transformar o movimento assistido em um arremesso acidental.
+
 ## [0.3.3] — 2026-08-24
 
 ### Corrigido

@@ -36,6 +36,7 @@ npm run check
 Na versão desktop, use `E` para pegar ou soltar o cubo, `F` para arremessar, `B` para guardar ou retirar da bolsa, `R` para recuperá-lo e `H` para visualizar as hitboxes.
 
 No Meta Quest, solte o gatilho com o item sobre o anel da cintura para guardá-lo no primeiro slot livre. O botão `X` do controle esquerdo abre ou fecha o inventário.
+Para pegar sem se agachar, aponte a mão para o item a até 3,5 m e pressione o gatilho; ele será atraído suavemente até a pegada.
 
 ## Meta Quest pelo GitHub Pages
 
