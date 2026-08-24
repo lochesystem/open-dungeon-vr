@@ -45,8 +45,8 @@ const TURN_SPEED = 1.85;
 const PLAYER_RADIUS = 0.32;
 const CUBE_RADIUS = 0.22;
 const GRAB_DISTANCE = 0.58;
-const BAG_SLOT_DISTANCE = 0.3;
-const BAG_SLOT_COUNT = 3;
+const BAG_SLOT_DISTANCE = 0.22;
+const BAG_SLOT_COUNT = 6;
 const DESKTOP_REACH = 3.2;
 const ROOM_BOUNDS: CollisionBounds = { minX: -11.7, maxX: 11.7, minZ: -11.7, maxZ: 11.7 };
 const CUBE_HOME = new THREE.Vector3(3, 1.27, 4.2);
@@ -122,9 +122,10 @@ export class OpenDungeonEngine {
   private readonly poseHistory = new Map<Holder, PoseSample[]>();
   private readonly controllerListeners: Array<{ controller: THREE.Group; start: () => void; end: () => void }> = [];
   private readonly adventureBag = new THREE.Group();
-  private readonly bagFlap = new THREE.Group();
+  private readonly bagMenu = new THREE.Group();
   private readonly bagSlots: THREE.Mesh[] = [];
   private readonly bagSlotMaterials: THREE.MeshStandardMaterial[] = [];
+  private readonly bagMenuMaterial: THREE.MeshBasicMaterial;
   private readonly runeCube: THREE.Mesh;
   private readonly cubeMaterial: THREE.MeshStandardMaterial;
   private readonly targetMaterial: THREE.MeshStandardMaterial;
@@ -145,6 +146,7 @@ export class OpenDungeonEngine {
   private readonly quest: boolean;
   private xrOriginPending = false;
   private bagOpenAmount = 0;
+  private bagMenuOpen = false;
   private desktopBagOpenSeconds = 0;
 
   constructor(container: HTMLElement, options: EngineOptions = {}) {
@@ -178,6 +180,13 @@ export class OpenDungeonEngine {
     this.cubeMaterial = interactables.cubeMaterial;
     this.targetMaterial = interactables.targetMaterial;
     this.targetCore = interactables.targetCore;
+    this.bagMenuMaterial = this.basicMaterial({
+      color: 0x102b28,
+      transparent: true,
+      opacity: 0,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
     this.buildControllers();
     this.buildAdventureBag();
     this.buildCollisionDebug();
@@ -458,29 +467,27 @@ export class OpenDungeonEngine {
   }
 
   private buildAdventureBag() {
-    this.adventureBag.name = 'adventure-bag';
-    const leather = this.material({ color: 0x70492f, roughness: 0.84, metalness: 0.04 });
-    const darkLeather = this.material({ color: 0x2c211a, roughness: 0.9, metalness: 0.02 });
-    const bronze = this.material({ color: 0xb77b3e, roughness: 0.38, metalness: 0.72 });
+    this.adventureBag.name = 'waist-bag-portal';
+    const portalMaterial = this.basicMaterial({
+      color: 0x51e6b8,
+      transparent: true,
+      opacity: 0.82,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const portal = new THREE.Mesh(this.geometry(new THREE.RingGeometry(0.09, 0.115, 32)), portalMaterial);
+    portal.rotation.x = -Math.PI / 2;
+    portal.name = 'waist-bag-opening';
+    this.adventureBag.add(portal);
+    this.adventureBag.visible = false;
+    this.playerRig.add(this.adventureBag);
 
-    const body = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.76, 0.34, 0.22)), leather);
-    body.position.y = -0.02;
-    this.adventureBag.add(body);
+    this.bagMenu.name = 'adventure-bag-menu';
+    const panel = new THREE.Mesh(this.geometry(new THREE.PlaneGeometry(0.64, 0.42)), this.bagMenuMaterial);
+    panel.position.z = 0.025;
+    this.bagMenu.add(panel);
 
-    const lowerTrim = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.8, 0.055, 0.245)), darkLeather);
-    lowerTrim.position.y = -0.18;
-    this.adventureBag.add(lowerTrim);
-
-    this.bagFlap.position.set(0, 0.16, 0.1);
-    const flap = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.78, 0.08, 0.25)), leather);
-    flap.position.set(0, 0, -0.1);
-    this.bagFlap.add(flap);
-    const clasp = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.1, 0.11, 0.035)), bronze);
-    clasp.position.set(0, -0.055, -0.235);
-    this.bagFlap.add(clasp);
-    this.adventureBag.add(this.bagFlap);
-
-    const slotGeometry = this.geometry(new THREE.TorusGeometry(0.068, 0.012, 8, 24));
+    const slotGeometry = this.geometry(new THREE.RingGeometry(0.055, 0.07, 28));
     for (let index = 0; index < BAG_SLOT_COUNT; index += 1) {
       const material = this.material({
         color: 0x51e6b8,
@@ -491,14 +498,17 @@ export class OpenDungeonEngine {
       });
       const slot = new THREE.Mesh(slotGeometry, material);
       slot.name = `bag-slot-${index + 1}`;
-      slot.position.set((index - 1) * 0.22, 0.065, -0.135);
+      const column = index % 3;
+      const row = Math.floor(index / 3);
+      slot.position.set((column - 1) * 0.19, row === 0 ? 0.105 : -0.105, 0);
       slot.visible = false;
       this.bagSlots.push(slot);
       this.bagSlotMaterials.push(material);
-      this.adventureBag.add(slot);
+      this.bagMenu.add(slot);
     }
 
-    this.playerRig.add(this.adventureBag);
+    this.bagMenu.visible = false;
+    this.playerRig.add(this.bagMenu);
     this.updateBagTransform(0);
   }
 
@@ -673,7 +683,7 @@ export class OpenDungeonEngine {
         this.runeCube.rotation.set(0, this.animationSeconds * 0.7, 0);
       }
       this.runeCube.scale.setScalar(0.34);
-      this.runeCube.visible = this.bagOpenAmount > 0.12;
+      this.runeCube.visible = this.bagMenuOpen && this.bagOpenAmount > 0.18;
       this.objectVelocity.set(0, 0, 0);
       this.objectSleeping = true;
       this.cubeMaterial.emissiveIntensity = 2.2;
@@ -763,30 +773,31 @@ export class OpenDungeonEngine {
   private updateBagTransform(delta: number) {
     const headHeight = THREE.MathUtils.clamp(this.camera.position.y, 1.15, 1.95);
     this.adventureBag.position.set(
-      this.camera.position.x + 0.42,
-      Math.max(0.58, headHeight - 0.78),
-      this.camera.position.z + 0.03,
+      this.camera.position.x,
+      Math.max(0.56, headHeight - 0.76),
+      this.camera.position.z - 0.03,
     );
     this.desktopBagOpenSeconds = Math.max(0, this.desktopBagOpenSeconds - delta);
     this.scene.updateMatrixWorld(true);
 
-    this.adventureBag.getWorldPosition(this.worldPosition);
     let handNear = false;
     if (this.renderer.xr.isPresenting) {
-      for (const controller of this.controllers.values()) {
-        controller.getWorldPosition(this.handPosition);
-        if (this.handPosition.distanceTo(this.worldPosition) <= 0.62) {
+      for (const holder of ['left', 'right'] as const) {
+        if (this.isControllerNearWaist(holder)) {
           handNear = true;
           break;
         }
       }
     }
 
-    const target = handNear || this.desktopBagOpenSeconds > 0 ? 1 : 0;
+    this.adventureBag.visible = handNear || this.bagMenuOpen || this.desktopBagOpenSeconds > 0;
+    const target = this.bagMenuOpen ? 1 : 0;
     const blend = delta > 0 ? 1 - Math.exp(-10 * delta) : 1;
     this.bagOpenAmount += (target - this.bagOpenAmount) * blend;
-    this.bagFlap.rotation.x = -this.bagOpenAmount * 1.2;
-    this.bagSlots.forEach((slot) => { slot.visible = this.bagOpenAmount > 0.08; });
+    this.bagMenu.visible = this.bagOpenAmount > 0.015;
+    this.bagMenu.scale.setScalar(0.9 + this.bagOpenAmount * 0.1);
+    this.bagMenuMaterial.opacity = this.bagOpenAmount * 0.22;
+    this.bagSlots.forEach((slot) => { slot.visible = this.bagOpenAmount > 0.18; });
 
     for (let index = 0; index < this.bagSlotMaterials.length; index += 1) {
       const material = this.bagSlotMaterials[index];
@@ -805,9 +816,38 @@ export class OpenDungeonEngine {
     }
   }
 
+  private isControllerNearWaist(holder: 'left' | 'right') {
+    const controller = this.controllers.get(holder);
+    if (!controller) return false;
+    this.adventureBag.getWorldPosition(this.worldPosition);
+    controller.getWorldPosition(this.handPosition);
+    return this.handPosition.distanceTo(this.worldPosition) <= 0.34;
+  }
+
+  private placeBagMenu() {
+    const forward = this.slotPosition.set(0, 0, -1).applyQuaternion(this.camera.quaternion);
+    forward.y = 0;
+    if (forward.lengthSq() < 0.001) forward.set(0, 0, -1);
+    forward.normalize();
+    this.bagMenu.position.set(
+      this.camera.position.x + forward.x * 0.82,
+      THREE.MathUtils.clamp(this.camera.position.y - 0.12, 1.02, 1.6),
+      this.camera.position.z + forward.z * 0.82,
+    );
+    this.bagMenu.rotation.set(0, Math.atan2(-forward.x, -forward.z), 0);
+  }
+
+  private toggleBagMenu(holder?: 'left' | 'right') {
+    this.bagMenuOpen = !this.bagMenuOpen;
+    if (this.bagMenuOpen) this.placeBagMenu();
+    this.playTone(this.bagMenuOpen ? 520 : 310, 0.065, 0.04);
+    if (holder) this.pulseController(holder, 0.2, 35);
+    this.emitInteraction(this.bagMenuOpen ? 'Bolsa aberta · escolha um dos seis slots.' : 'Bolsa fechada.');
+  }
+
   private nearestBagSlot(holder: 'left' | 'right') {
     const controller = this.controllers.get(holder);
-    if (!controller || this.bagOpenAmount < 0.08) return null;
+    if (!controller || !this.bagMenuOpen || this.bagOpenAmount < 0.18) return null;
     controller.getWorldPosition(this.handPosition);
     let nearest: number | null = null;
     let nearestDistance = BAG_SLOT_DISTANCE;
@@ -865,6 +905,10 @@ export class OpenDungeonEngine {
 
   private toggleDesktopBag() {
     this.desktopBagOpenSeconds = 1.6;
+    if (!this.bagMenuOpen) {
+      this.toggleBagMenu();
+      return;
+    }
     if (this.objectState.holder === 'desktop') {
       this.storeHeldObject('desktop', 0);
       return;
@@ -873,7 +917,7 @@ export class OpenDungeonEngine {
       this.retrieveStoredObject('desktop');
       return;
     }
-    this.emitInteraction('Pegue o cubo antes de guardá-lo na bolsa.');
+    this.toggleBagMenu();
   }
 
   private heldObjectPosition(holder: Holder) {
@@ -911,6 +955,10 @@ export class OpenDungeonEngine {
   }
 
   private tryControllerGrab(holder: 'left' | 'right') {
+    if (this.isControllerNearWaist(holder)) {
+      this.toggleBagMenu(holder);
+      return;
+    }
     if (this.objectState.storedSlot !== null) {
       if (this.nearestBagSlot(holder) === this.objectState.storedSlot) {
         this.retrieveStoredObject(holder);
@@ -998,6 +1046,9 @@ export class OpenDungeonEngine {
     this.runeCube.rotation.set(0, Math.PI / 4, 0);
     this.runeCube.scale.setScalar(1);
     this.runeCube.visible = true;
+    this.bagMenuOpen = false;
+    this.bagOpenAmount = 0;
+    this.bagMenu.visible = false;
     this.targetCore.scale.setScalar(1);
     this.poseHistory.forEach((history) => history.splice(0));
     this.emitInteraction(status);

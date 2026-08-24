@@ -112,9 +112,9 @@ O jogador pega um cubo rúnico, troca de mão, solta, arremessa em um alvo e rec
 
 ### D2.1 — Primeira fatia funcional
 
-- [x] Bolsa procedural presa à cintura e alcançável pelas duas mãos.
-- [x] Tampa abre por proximidade e desativa a física do item guardado.
-- [x] Três sockets físicos oferecem snap assistido e feedback visual.
+- [x] Pequeno portal circular aparece apenas quando uma mão se aproxima do centro da cintura.
+- [x] Clique no portal abre ou fecha um painel transparente e discreto à frente do jogador.
+- [x] Seis sockets em matriz 3×2 oferecem snap assistido e feedback visual.
 - [x] Cubo entra e sai da bolsa sem duplicar autoridade entre mundo, slot e mão.
 - [x] Guardar e retirar possuem áudio, haptics e equivalência desktop pela tecla `B`.
 - [x] Regras de armazenamento, slot inválido e retirada incorreta possuem testes headless.
@@ -338,7 +338,7 @@ A etapa ativa é **D2 — Bolsa da aventura**. A D2.1 estabelece a ergonomia e a
 | --- | --- | --- |
 | D0 — Fundação | Concluída | `game/`; testes, lint, build e HTTP 200 em 24/08/2026 |
 | D1 — Mãos e objeto | Concluída | Grab, handoff, arremesso, alvo, recuperação e homologação inicial no Quest |
-| D2 — Bolsa e itens | Em andamento | D2.1: bolsa de cintura, três slots e armazenamento autoritativo do cubo |
+| D2 — Bolsa e itens | Em andamento | D2.1: portal de cintura, menu 3×2 e armazenamento autoritativo do cubo |
 | D3 — Combate estático | Não iniciada | — |
 | D4 — Primeiro inimigo | Não iniciada | — |
 | D5 — Sala completa | Não iniciada | — |

@@ -12,7 +12,7 @@ Documentos do projeto:
 ## Estado
 
 - D0 e D1 concluídas; D2.1 com primeira bolsa da aventura executável
-- Bolsa de cintura com três slots, armazenamento autoritativo do cubo e equivalência desktop/WebXR
+- Portal discreto na cintura e menu transparente com seis slots, mantendo armazenamento autoritativo no desktop/WebXR
 - Nome de trabalho: **Open Dungeon VR**
 - Produção: **FULL IA**, com aprovação visual e de produto pelo usuário
 - Estratégia: entregas pequenas, executáveis e verticalmente completas

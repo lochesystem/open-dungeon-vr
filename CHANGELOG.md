@@ -17,6 +17,16 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D2 — Bolsa da aventura.
 
+## [0.3.1] — 2026-08-24
+
+### Alterado
+
+- Bolsa física grande foi substituída por um portal circular discreto que só aparece com a mão próxima ao centro da cintura.
+- Pressionar o gatilho no portal abre ou fecha um menu transparente estável à frente do jogador.
+- Inventário visual agora possui seis slots organizados em matriz 3×2.
+- Conteúdo guardado só é materializado enquanto o menu está aberto.
+- Interface deixou de ocupar a lateral direita e não acompanha continuamente a direção da cabeça depois de aberta.
+
 ## [0.3.0] — 2026-08-24
 
 ### Adicionado
