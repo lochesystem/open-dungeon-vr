@@ -95,6 +95,10 @@ export function GameShell() {
     enemyAttackPhase: 'ready',
     enemyBlockedAttacks: 0,
     enemyHits: 0,
+    guardianHealth: 4,
+    guardianMaximumHealth: 4,
+    guardianDefeated: false,
+    guardianRewardStored: false,
     status: 'Encontre a espada e derrote o boneco de treinamento.',
   });
 
@@ -138,7 +142,7 @@ export function GameShell() {
 
   const playDesktop = useCallback(() => {
     engineRef.current?.reset();
-    setNotice('Observe o Guardião Ossário patrulhar, perceber, perseguir e retornar ao posto.');
+    setNotice('Enfrente o Guardião Ossário, interrompa seus golpes e recolha a runa libertada.');
     setScreen('playing');
   }, []);
 
@@ -207,6 +211,7 @@ export function GameShell() {
             <span>07 · Escudo direcional</span>
             <span>08 · IA do Guardião</span>
             <span>09 · Golpe e bloqueio</span>
+            <span>10 · Vida, morte e runa</span>
           </div>
           <p className="notice" role="status">{notice}</p>
         </section>
@@ -230,9 +235,13 @@ export function GameShell() {
             <span><kbd>ESC</kbd> pausar</span>
           </aside>
           <aside className="objective-card" aria-label="Objetivo da sala">
-            <span>OBJETIVO D4.2 · GUARDIÃO A {interaction.enemyDistance.toFixed(1)} M</span>
-            <strong>{ENEMY_STATE_LABEL[interaction.enemyState]} · {ENEMY_ATTACK_LABEL[interaction.enemyAttackPhase]}</strong>
-            <small>Defesas {interaction.enemyBlockedAttacks} · golpes recebidos {interaction.enemyHits}</small>
+            <span>OBJETIVO D4.3 · GUARDIÃO A {interaction.enemyDistance.toFixed(1)} M</span>
+            <strong>{interaction.guardianDefeated
+              ? 'DERROTADO'
+              : `${ENEMY_STATE_LABEL[interaction.enemyState]} · ${ENEMY_ATTACK_LABEL[interaction.enemyAttackPhase]}`}</strong>
+            <small>{interaction.guardianDefeated
+              ? interaction.guardianRewardStored ? 'Runa guardada · encontro concluído' : 'Recolha a Runa da Memória'
+              : `Vida ${interaction.guardianHealth}/${interaction.guardianMaximumHealth} · defesas ${interaction.enemyBlockedAttacks}`}</small>
           </aside>
           <p className="play-notice" role="status">{interaction.status || notice}</p>
         </>
@@ -252,7 +261,7 @@ export function GameShell() {
         </section>
       )}
 
-      <footer className="build-label">BUILD D4.2 · LOCAL · {xrActive ? 'XR ATIVO' : 'DESKTOP'}</footer>
+      <footer className="build-label">BUILD D4.3 · LOCAL · {xrActive ? 'XR ATIVO' : 'DESKTOP'}</footer>
     </main>
   );
 }

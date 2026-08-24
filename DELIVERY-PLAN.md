@@ -313,7 +313,20 @@ O blockout D4.1 estabeleceu a locomoção sem ataques; a fatia seguinte conecta 
 - [x] HUD mostra fase do ataque, defesas e golpes recebidos.
 - [ ] Homologar alcance, ritmo, arco e conforto do golpe no Meta Quest.
 
-A D4.3 adicionará vida, reação a dano, stagger, morte e recompensa do Guardião. Refinos avançados de antecipação, parry e stamina continuam adiados.
+A D4.2 fechou o primeiro ciclo ofensivo e abriu caminho para tornar o Guardião derrotável na fatia seguinte.
+
+### D4.3 — Vida, stagger, morte e recompensa
+
+- [x] Guardião possui quatro pontos de vida exibidos no HUD.
+- [x] Trajetória varrida da espada atinge o volume corporal móvel do inimigo.
+- [x] Cada golpe aceito interrompe o ataque, produz feedback e aplica stagger curto.
+- [x] Cooldown impede que um único arco da espada cause múltiplos danos.
+- [x] Último golpe derruba o corpo e remove o collider dinâmico.
+- [x] Morte libera exatamente uma Runa da Memória física.
+- [x] Runa compartilha puxão distante, física, recuperação e os seis slots da bolsa.
+- [ ] Homologar alcance da espada, duração do stagger e leitura da queda no Meta Quest.
+
+A próxima fatia D4.4 adicionará uma segunda variação de ataque e seleção contextual simples. Arte final, parry e stamina continuam fora desta rodada.
 
 ### Experiência
 
@@ -472,7 +485,7 @@ O slice não começa do zero: ele amplia uma cadeia já jogável e homologada.
 
 ## 13. Ordem imediata
 
-A etapa ativa é **D4 — Primeiro inimigo completo**. A D4.2 fecha o primeiro ciclo de ataque corpo a corpo e a defesa com escudo; a próxima fatia é D4.3, com vida, reação a dano, stagger, morte e recompensa. Parry e stamina permanecem adiados para uma rodada posterior de refinamento do combate.
+A etapa ativa é **D4 — Primeiro inimigo completo**. A D4.3 fecha o primeiro encontro derrotável, incluindo vida, stagger, morte e recompensa guardável; a próxima fatia D4.4 adiciona uma segunda variação de ataque. Parry e stamina permanecem adiados para uma rodada posterior de refinamento do combate.
 
 ## 14. Registro de andamento
 
@@ -482,7 +495,7 @@ A etapa ativa é **D4 — Primeiro inimigo completo**. A D4.2 fecha o primeiro c
 | D1 — Mãos e objeto | Concluída | Grab, handoff, arremesso, alvo, recuperação e homologação inicial no Quest |
 | D2 — Bolsa e itens | Concluída | Bolsa 3×2, categorias, poção consumível, chave, recuperação e vida no pulso |
 | D3 — Combate estático | Em andamento | D3.3: espada livre, boneco imortal, escudo e bloqueio direcional |
-| D4 — Primeiro inimigo | Em andamento | D4.2: golpe de maça, trajetória varrida, bloqueio e dano não letal |
+| D4 — Primeiro inimigo | Em andamento | D4.3: vida, dano de espada, stagger, morte e runa guardável |
 | D5 — Sala completa | Não iniciada | — |
 | D6 — Micro-expedição | Não iniciada | — |
 | D7 — Quest e conforto | Não iniciada | — |

@@ -17,6 +17,22 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D3 — Laboratório de combate estático.
 
+## [0.13.0] — 2026-08-24
+
+### Adicionado
+
+- Quatro pontos de vida para o Guardião Ossário, expostos no HUD.
+- Dano pela trajetória varrida da espada contra o volume corporal móvel do inimigo.
+- Reação visual, interrupção do ataque, stagger, áudio e haptics por golpe válido.
+- Queda definitiva com remoção do collider ao chegar a zero de vida.
+- Runa da Memória procedural liberada uma única vez como recompensa física.
+- Runa integrada a puxão distante, física, recuperação e bolsa de seis slots.
+
+### Validado
+
+- Testes cobrem dano unitário, derrota, recompensa única, imunidade após a morte e limites de vida.
+- Suíte ampliada para 69 testes.
+
 ## [0.12.1] — 2026-08-24
 
 ### Corrigido

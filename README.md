@@ -11,7 +11,7 @@ Documentos do projeto:
 
 ## Estado
 
-- D0, D1 e D2 concluídas; D3 possui espada e escudo; D4.2 adiciona o primeiro combate do Guardião Ossário
+- D0, D1 e D2 concluídas; D3 possui espada e escudo; D4.3 fecha o primeiro encontro derrotável
 - Portal discreto na cintura: solte um item sobre o anel para guardar automaticamente; `X` esquerdo ou `A` direito abre o menu conforme a mão dominante
 - Nome de trabalho: **Open Dungeon VR**
 - Produção: **FULL IA**, com aprovação visual e de produto pelo usuário
@@ -45,6 +45,8 @@ Se um item sair dos limites da sala, ele retorna ao último slot válido; se iss
 Para o treino D3.2, puxe a espada da lateral esquerda e atravesse o volume do boneco com golpes rápidos e deliberados. O boneco é imortal e contabiliza os acertos indefinidamente. Ao puxar à distância ou retirar da bolsa, a espada encaixa pelo punho com a lâmina ereta e o fio apontado para a frente; ao alcançá-la diretamente, pegue qualquer trecho para escolher livremente ponto e ângulo. Mantenha o gatilho da outra mão sobre um segundo trecho para manipulação bimanual. No desktop, segure a espada, aproxime-se e pressione `J`.
 Para o treino D3.3, puxe o escudo do suporte à direita. Ele encaixa automaticamente pela alça, apoiado no lado externo da mão — com poses espelhadas para esquerda e direita — e com a alça alinhada do punho aos dedos; depois disso, o pulso orienta a defesa normalmente. Um projétil anuncia o ataque antes de avançar: coloque o disco no caminho e mantenha a face decorada voltada para a origem. Contato pelo verso, fora do raio ou em ângulo rasante não bloqueia. Os ataques são não letais e o ciclo continua enquanto o escudo estiver equipado.
 Na D4.2, o Guardião Ossário patrulha o setor direito e, depois de perceber e alcançar o jogador, prepara e desfere um golpe físico de maça. Saia do arco ou intercepte a trajetória com a face válida do escudo. Cada ciclo resolve no máximo um contato, o dano permanece não letal e o projétil do treino estático é suspenso durante o encontro para não misturar duas ameaças. Vida, stagger e morte do inimigo ficam para a D4.3.
+
+Na D4.3, golpes deliberados da espada retiram quatro pontos de vida do Guardião. Cada acerto interrompe o ataque e produz uma reação curta; o último derruba o corpo, remove seu collider e libera uma Runa da Memória física. A runa pode ser puxada, segurada, solta, recuperada e guardada em qualquer slot livre da bolsa.
 
 ## Meta Quest pelo GitHub Pages
 

@@ -49,6 +49,12 @@ import {
   type EnemyAttackPhase,
 } from './enemyCombat';
 import { createVrSessionInit } from './xrSession';
+import {
+  GUARDIAN_MAXIMUM_HEALTH,
+  damageGuardian,
+  initialGuardianVitals,
+  type GuardianVitalState,
+} from './guardianVitals';
 
 export type InteractionSnapshot = {
   canGrab: boolean;
@@ -69,6 +75,10 @@ export type InteractionSnapshot = {
   enemyAttackPhase: EnemyAttackPhase;
   enemyBlockedAttacks: number;
   enemyHits: number;
+  guardianHealth: number;
+  guardianMaximumHealth: number;
+  guardianDefeated: boolean;
+  guardianRewardStored: boolean;
   status: string;
 };
 
@@ -120,6 +130,7 @@ const TARGET_POSITION = new THREE.Vector3(3, 2, -4.8);
 const TARGET_RADIUS = 0.72;
 const DUMMY_POSITION = new THREE.Vector3(-3.05, 1.15, -2.8);
 const GUARDIAN_HOME = new THREE.Vector3(5.8, 0, -3.8);
+const GUARDIAN_REWARD_HOME = new THREE.Vector3(5.8, 0.2, -3.8);
 const GUARDIAN_RADIUS = 0.46;
 const GUARDIAN_PATROL = [
   new THREE.Vector3(5.8, 0, -3.8),
@@ -239,7 +250,7 @@ const ROOM_COLLIDERS: StaticCollider[] = [
   TRAINING_DUMMY_COLLIDER,
 ];
 
-type ItemId = 'cube' | 'key' | 'potion' | 'sword' | 'shield';
+type ItemId = 'cube' | 'key' | 'potion' | 'sword' | 'shield' | 'rune';
 
 type ItemRuntime = {
   id: ItemId;
@@ -310,6 +321,7 @@ export class OpenDungeonEngine {
   private readonly guardianRightLeg: THREE.Group;
   private readonly guardianWeaponTip: THREE.Object3D;
   private readonly guardianStateMaterial: THREE.MeshBasicMaterial;
+  private readonly guardianArmorMaterial: THREE.MeshStandardMaterial;
   private targetHits = 0;
   private targetPulseSeconds = 0;
   private lastInteractionSignature = '';
@@ -348,6 +360,10 @@ export class OpenDungeonEngine {
   private readonly enemyShieldQuaternion = new THREE.Quaternion();
   private enemyBlockedAttacks = 0;
   private enemyHits = 0;
+  private guardianVitals: GuardianVitalState = initialGuardianVitals();
+  private guardianHitCooldown = 0;
+  private guardianStaggerSeconds = 0;
+  private guardianHitPulse = 0;
   private drinkProgress = 0;
   private hazardOccupied = false;
   private hazardPulseSeconds = 0;
@@ -423,6 +439,9 @@ export class OpenDungeonEngine {
     this.items.set('shield', this.createItemRuntime(
       'shield', 'Escudo da fundação', interactables.shield, interactables.shieldMaterial, SHIELD_HOME, 0.46, INVENTORY_PREVIEW_SCALE.shield,
     ));
+    this.items.set('rune', this.createItemRuntime(
+      'rune', 'Runa do Guardião', interactables.guardianReward, interactables.guardianRewardMaterial, GUARDIAN_REWARD_HOME, 0.16, INVENTORY_PREVIEW_SCALE.rune,
+    ));
     this.door = interactables.door;
     this.lockSocket = interactables.lockSocket;
     this.hazardMaterial = interactables.hazardMaterial;
@@ -440,6 +459,7 @@ export class OpenDungeonEngine {
     this.guardianRightLeg = interactables.guardianRightLeg;
     this.guardianWeaponTip = interactables.guardianWeaponTip;
     this.guardianStateMaterial = interactables.guardianStateMaterial;
+    this.guardianArmorMaterial = interactables.guardianArmor;
     this.bagMenuMaterial = this.basicMaterial({
       color: 0x102b28,
       transparent: true,
@@ -1016,6 +1036,29 @@ export class OpenDungeonEngine {
     guardian.add(guardianBody, guardianStateRing);
     this.scene.add(guardian);
 
+    const guardianRewardMaterial = this.material({
+      color: 0x8fffe0,
+      emissive: 0x21c99f,
+      emissiveIntensity: 3.2,
+      roughness: 0.18,
+      metalness: 0.38,
+    });
+    const guardianReward = new THREE.Group();
+    guardianReward.name = 'guardian-memory-rune';
+    const rewardCore = new THREE.Mesh(
+      this.geometry(new THREE.OctahedronGeometry(0.16, 0)),
+      guardianRewardMaterial,
+    );
+    const rewardRing = new THREE.Mesh(
+      this.geometry(new THREE.TorusGeometry(0.21, 0.022, 8, 28)),
+      bronze,
+    );
+    rewardRing.rotation.x = Math.PI / 2;
+    guardianReward.add(rewardCore, rewardRing);
+    guardianReward.position.copy(GUARDIAN_REWARD_HOME);
+    guardianReward.visible = false;
+    this.scene.add(guardianReward);
+
     const hazardMaterial = this.material({
       color: 0xd14b55,
       emissive: 0x8f1027,
@@ -1099,6 +1142,9 @@ export class OpenDungeonEngine {
       guardianRightLeg,
       guardianWeaponTip,
       guardianStateMaterial,
+      guardianArmor,
+      guardianReward,
+      guardianRewardMaterial,
       hazardMaterial,
       door,
       lockSocket,
@@ -1478,7 +1524,7 @@ export class OpenDungeonEngine {
     const colliders = doorBlocksPassage(this.doorOpenAmount)
       ? [...ROOM_COLLIDERS, LOCKED_DOOR_COLLIDER]
       : ROOM_COLLIDERS;
-    if (!includeGuardian) return colliders;
+    if (!includeGuardian || this.guardianVitals.defeated) return colliders;
     return [...colliders, {
       kind: 'circle' as const,
       id: 'ossuary-guardian',
@@ -1499,6 +1545,25 @@ export class OpenDungeonEngine {
   private updateGuardian(delta: number, player: { x: number; z: number }) {
     const current = { x: this.guardian.position.x, z: this.guardian.position.z };
     this.enemyDistance = Math.hypot(player.x - current.x, player.z - current.z);
+    this.guardianHitCooldown = Math.max(0, this.guardianHitCooldown - delta);
+    this.guardianStaggerSeconds = Math.max(0, this.guardianStaggerSeconds - delta);
+    this.guardianHitPulse = Math.max(0, this.guardianHitPulse - delta);
+    this.guardianArmorMaterial.emissive.setHex(this.guardianHitPulse > 0 ? 0xa32b20 : 0x0b2422);
+    this.guardianArmorMaterial.emissiveIntensity = this.guardianHitPulse > 0 ? 3.4 : 0.55;
+
+    if (this.guardianVitals.defeated) {
+      const deathBlend = 1 - Math.exp(-4.8 * delta);
+      this.guardianBody.rotation.z += (-Math.PI / 2 - this.guardianBody.rotation.z) * deathBlend;
+      this.guardianBody.rotation.x += (0 - this.guardianBody.rotation.x) * deathBlend;
+      this.guardianBody.rotation.y += (0 - this.guardianBody.rotation.y) * deathBlend;
+      this.guardianBody.position.y += (0.16 - this.guardianBody.position.y) * deathBlend;
+      this.guardianLeftArm.rotation.x += (0.35 - this.guardianLeftArm.rotation.x) * deathBlend;
+      this.guardianRightArm.rotation.x += (-0.2 - this.guardianRightArm.rotation.x) * deathBlend;
+      this.guardianStateMaterial.color.setHex(0x35d9ae);
+      this.guardianStateMaterial.opacity = 0.42;
+      return;
+    }
+
     this.enemyStateSeconds += delta;
     const reachedHome = Math.hypot(current.x - GUARDIAN_HOME.x, current.z - GUARDIAN_HOME.z) <= 0.42;
     const nextState = nextEnemyState(this.enemyState, this.enemyDistance, this.enemyStateSeconds, reachedHome);
@@ -1512,7 +1577,10 @@ export class OpenDungeonEngine {
 
     let target: THREE.Vector3 | null = null;
     let speed = 0;
-    if (this.enemyState === 'patrol') {
+    if (this.guardianStaggerSeconds > 0) {
+      target = null;
+      speed = 0;
+    } else if (this.enemyState === 'patrol') {
       target = GUARDIAN_PATROL[this.enemyPatrolIndex];
       if (Math.hypot(target.x - current.x, target.z - current.z) <= 0.4) {
         this.enemyPatrolIndex = (this.enemyPatrolIndex + 1) % GUARDIAN_PATROL.length;
@@ -1567,6 +1635,8 @@ export class OpenDungeonEngine {
     this.guardianRightArm.rotation.x += (stride * 0.72 - this.guardianRightArm.rotation.x) * animationBlend;
     const alertLean = this.enemyState === 'alert' ? 0.08 : this.enemyState === 'chase' ? 0.05 : 0;
     this.guardianBody.rotation.x += (alertLean - this.guardianBody.rotation.x) * animationBlend;
+    const hitLean = this.guardianStaggerSeconds > 0 ? -0.2 : 0;
+    this.guardianBody.rotation.z += (hitLean - this.guardianBody.rotation.z) * animationBlend;
     this.guardianBody.position.y = Math.sin(this.animationSeconds * (travelled > 0 ? 8 : 2.1)) * (travelled > 0 ? 0.025 : 0.012);
 
     const stateColor = {
@@ -1602,7 +1672,10 @@ export class OpenDungeonEngine {
   }
 
   private updateGuardianAttack(delta: number) {
-    const canAttack = this.enemyState === 'chase' && this.enemyDistance <= ENEMY_ATTACK_RANGE;
+    const canAttack = !this.guardianVitals.defeated
+      && this.guardianStaggerSeconds <= 0
+      && this.enemyState === 'chase'
+      && this.enemyDistance <= ENEMY_ATTACK_RANGE;
     if (!canAttack) {
       if (this.enemyAttackPhase !== 'ready') this.enemyAttackPhase = nextEnemyAttackPhase(this.enemyAttackPhase, false, false);
       this.enemyAttackSeconds = 0;
@@ -1690,6 +1763,7 @@ export class OpenDungeonEngine {
     this.updateSecondaryItem(this.items.get('potion')!, delta, nowSeconds);
     this.updateSecondaryItem(this.items.get('sword')!, delta, nowSeconds);
     this.updateSecondaryItem(this.items.get('shield')!, delta, nowSeconds);
+    this.updateSecondaryItem(this.items.get('rune')!, delta, nowSeconds);
     this.updateTrainingCombat(delta);
     this.updateShieldTraining(delta);
     if (this.objectState.storedSlot !== null) {
@@ -1809,6 +1883,12 @@ export class OpenDungeonEngine {
   }
 
   private updateSecondaryItem(item: ItemRuntime, delta: number, nowSeconds: number) {
+    if (item.id === 'rune' && !this.guardianVitals.rewardDropped) {
+      item.object.visible = false;
+      item.velocity.set(0, 0, 0);
+      item.sleeping = true;
+      return;
+    }
     if (item.id === 'key' && this.keyInserted) {
       item.object.visible = true;
       item.object.scale.setScalar(0.72);
@@ -1905,6 +1985,10 @@ export class OpenDungeonEngine {
     if (shouldRecoverObject(item.object.position, ROOM_BOUNDS)) {
       this.recoverItem(item);
     }
+    if (item.id === 'rune' && !item.state.holder && item.state.storedSlot === null && item.sleeping) {
+      item.object.rotation.y += delta * 0.9;
+      item.object.position.y = item.radius + 0.06 + Math.sin(this.animationSeconds * 2.2) * 0.035;
+    }
     item.material.emissiveIntensity = this.itemCanBeGrabbed(item) ? 2.8 : 1.15;
   }
 
@@ -1924,10 +2008,20 @@ export class OpenDungeonEngine {
     sword.object.updateMatrixWorld(true);
     this.swordTip.set(0, 0, -1.03);
     sword.object.localToWorld(this.swordTip);
+    const deliberateSwing = this.swordTipReady
+      && isDeliberateSwing(this.previousSwordTip, this.swordTip, delta);
+    if (deliberateSwing && !this.guardianVitals.defeated && this.guardianHitCooldown <= 0) {
+      const hitGuardian = sweptSphereHit(
+        this.previousSwordTip,
+        this.swordTip,
+        { x: this.guardian.position.x, y: 1.28, z: this.guardian.position.z },
+        0.62,
+      );
+      if (hitGuardian) this.registerGuardianHit(sword.state.holder);
+    }
     if (
-      this.swordTipReady
+      deliberateSwing
       && this.dummyHitCooldown <= 0
-      && isDeliberateSwing(this.previousSwordTip, this.swordTip, delta)
       && sweptSphereHit(
         this.previousSwordTip,
         this.swordTip,
@@ -1953,6 +2047,46 @@ export class OpenDungeonEngine {
       if (sword?.secondaryHolder) this.pulseController(sword.secondaryHolder, 0.24, 48);
     }
     this.emitInteraction(`Golpe válido ${this.dummyHits} · o boneco de treino é imortal.`);
+  }
+
+  private registerGuardianHit(holder: Holder) {
+    if (this.guardianHitCooldown > 0 || this.guardianVitals.defeated) return;
+    const previous = this.guardianVitals;
+    this.guardianVitals = damageGuardian(this.guardianVitals);
+    if (this.guardianVitals === previous) return;
+    this.guardianHitCooldown = 0.38;
+    this.guardianHitPulse = 0.24;
+    this.guardianStaggerSeconds = this.guardianVitals.defeated ? 0 : 0.52;
+    this.enemyAttackPhase = 'ready';
+    this.enemyAttackSeconds = 0;
+    this.enemyAttackResolved = false;
+    this.enemyWeaponTipReady = false;
+    this.playTone(this.guardianVitals.defeated ? 105 : 315, this.guardianVitals.defeated ? 0.42 : 0.12, 0.085);
+    this.pulseController(holder, this.guardianVitals.defeated ? 0.9 : 0.58, this.guardianVitals.defeated ? 155 : 82);
+    if (holder !== 'desktop') {
+      const sword = this.items.get('sword');
+      if (sword?.secondaryHolder) this.pulseController(sword.secondaryHolder, 0.32, 62);
+    }
+    if (this.guardianVitals.defeated) {
+      this.dropGuardianReward();
+      this.emitInteraction('Guardião derrotado · a Runa da Memória foi libertada. Recolha-a.');
+      return;
+    }
+    this.emitInteraction(`Guardião atingido · vida ${this.guardianVitals.health}/${GUARDIAN_MAXIMUM_HEALTH}.`);
+  }
+
+  private dropGuardianReward() {
+    const reward = this.items.get('rune')!;
+    reward.state = { ...INITIAL_OBJECT_STATE };
+    reward.lastStoredSlot = null;
+    reward.object.visible = true;
+    reward.object.scale.setScalar(reward.worldScale);
+    reward.object.position.set(this.guardian.position.x, 0.72, this.guardian.position.z);
+    reward.object.rotation.set(0, 0, 0);
+    reward.velocity.set(0, 1.65, 0);
+    reward.sleeping = false;
+    this.playTone(470, 0.15, 0.055, 0.18);
+    this.playTone(760, 0.28, 0.05, 0.3);
   }
 
   private beginShieldAttack() {
@@ -2055,11 +2189,20 @@ export class OpenDungeonEngine {
       return;
     }
     const player = this.getPlayerWorldPosition();
-    if (Math.hypot(player.x - DUMMY_POSITION.x, player.z - DUMMY_POSITION.z) > 2.35) {
-      this.emitInteraction('Aproxime-se do boneco para alcançar com a espada.');
+    const guardianDistance = Math.hypot(
+      player.x - this.guardian.position.x,
+      player.z - this.guardian.position.z,
+    );
+    if (!this.guardianVitals.defeated && guardianDistance <= 2.35) {
+      this.registerGuardianHit('desktop');
       return;
     }
-    this.registerDummyHit('desktop');
+    const dummyDistance = Math.hypot(player.x - DUMMY_POSITION.x, player.z - DUMMY_POSITION.z);
+    if (dummyDistance <= 2.35) {
+      this.registerDummyHit('desktop');
+      return;
+    }
+    this.emitInteraction('Aproxime-se do Guardião ou do boneco para alcançar com a espada.');
   }
 
   private updateDrinkGesture(item: ItemRuntime, holder: Holder, delta: number) {
@@ -2338,6 +2481,7 @@ export class OpenDungeonEngine {
         stored?.id === 'key' ? 0xffbd55
           : stored?.id === 'potion' ? 0xff6f9f
             : stored?.id === 'sword' ? 0xbfe1dc
+              : stored?.id === 'rune' ? 0x8fffe0
               : stored ? 0x73e4ca : 0x51e6b8,
       );
     }
@@ -2801,6 +2945,7 @@ export class OpenDungeonEngine {
     const potion = this.items.get('potion')!;
     const sword = this.items.get('sword')!;
     const shield = this.items.get('shield')!;
+    const guardianReward = this.items.get('rune')!;
     key.state = { ...INITIAL_OBJECT_STATE };
     this.targetHits = 0;
     this.targetPulseSeconds = 0;
@@ -2815,6 +2960,8 @@ export class OpenDungeonEngine {
     this.resetItem(potion);
     this.resetItem(sword);
     this.resetItem(shield);
+    this.resetItem(guardianReward);
+    guardianReward.object.visible = false;
     this.keyInserted = false;
     this.potionConsumed = false;
     this.drinkProgress = 0;
@@ -2843,6 +2990,12 @@ export class OpenDungeonEngine {
     this.enemyWeaponTipReady = false;
     this.enemyBlockedAttacks = 0;
     this.enemyHits = 0;
+    this.guardianVitals = initialGuardianVitals();
+    this.guardianHitCooldown = 0;
+    this.guardianStaggerSeconds = 0;
+    this.guardianHitPulse = 0;
+    this.guardianArmorMaterial.emissive.setHex(0x0b2422);
+    this.guardianArmorMaterial.emissiveIntensity = 0.55;
     this.guardian.position.copy(GUARDIAN_HOME);
     this.guardian.rotation.set(0, 0, 0);
     this.guardianBody.position.set(0, 0, 0);
@@ -2928,6 +3081,10 @@ export class OpenDungeonEngine {
       enemyAttackPhase: this.enemyAttackPhase,
       enemyBlockedAttacks: this.enemyBlockedAttacks,
       enemyHits: this.enemyHits,
+      guardianHealth: this.guardianVitals.health,
+      guardianMaximumHealth: GUARDIAN_MAXIMUM_HEALTH,
+      guardianDefeated: this.guardianVitals.defeated,
+      guardianRewardStored: this.items.get('rune')!.state.storedSlot !== null,
       status,
     };
     const signature = JSON.stringify(snapshot);
@@ -2937,6 +3094,10 @@ export class OpenDungeonEngine {
   }
 
   private contextualStatus(fallback: string) {
+    const guardianReward = this.items.get('rune');
+    if (guardianReward?.state.storedSlot !== null) return `Runa do Guardião guardada no slot ${guardianReward.state.storedSlot + 1} · encontro concluído.`;
+    if (this.guardianVitals.defeated) return 'Guardião derrotado · recolha a Runa da Memória e guarde-a na bolsa.';
+    if (this.guardianStaggerSeconds > 0) return `Guardião cambaleando · vida ${this.guardianVitals.health}/${GUARDIAN_MAXIMUM_HEALTH}.`;
     if (this.enemyAttackPhase === 'windup') return 'Guardião preparando golpe · recue ou levante a face do escudo.';
     if (this.enemyAttackPhase === 'swing') return 'Maça em movimento · saia do arco ou intercepte com o escudo.';
     if (this.enemyAttackPhase === 'recover') return 'Guardião se recuperando · o próximo ciclo ainda não começou.';
@@ -2944,6 +3105,7 @@ export class OpenDungeonEngine {
     if (shield?.state.holder) return `Escudo em mãos · ${this.blockedAttacks} bloqueio${this.blockedAttacks === 1 ? '' : 's'} válido${this.blockedAttacks === 1 ? '' : 's'}. Oriente a face para o ataque.`;
     if (shield && shield.state.storedSlot !== null) return `Escudo guardado no slot ${shield.state.storedSlot + 1} · retire-o para treinar bloqueios.`;
     const sword = this.items.get('sword');
+    if (sword?.state.holder && !this.guardianVitals.defeated) return `Espada em mãos · Guardião com vida ${this.guardianVitals.health}/${GUARDIAN_MAXIMUM_HEALTH}.`;
     if (sword?.state.holder) return `Espada em mãos · ${this.dummyHits} golpe${this.dummyHits === 1 ? '' : 's'} válido${this.dummyHits === 1 ? '' : 's'} no boneco imortal.`;
     if (sword && sword.state.storedSlot !== null) return `Espada guardada no slot ${sword.state.storedSlot + 1} · retire-a para iniciar o treino.`;
     if (sword && !sword.state.holder) return 'Encontre a espada no suporte à esquerda e puxe-a para sua mão.';
@@ -3035,7 +3197,8 @@ export class OpenDungeonEngine {
       item.state.holder
       || item.state.storedSlot !== null
       || (item.id === 'key' && this.keyInserted)
-      || (item.id === 'potion' && this.potionConsumed),
+      || (item.id === 'potion' && this.potionConsumed)
+      || (item.id === 'rune' && !this.guardianVitals.rewardDropped)
     );
   }
 
