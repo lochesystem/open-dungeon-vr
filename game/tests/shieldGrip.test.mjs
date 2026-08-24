@@ -16,8 +16,8 @@ test('shield decorated face rests on the outside of each hand instead of above i
   const controllerRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.3, -0.7, 0.2));
   const leftFace = new THREE.Vector3(0, 0, 1).applyQuaternion(heldShieldRotation(controllerRotation, 'left'));
   const rightFace = new THREE.Vector3(0, 0, 1).applyQuaternion(heldShieldRotation(controllerRotation, 'right'));
-  const leftOutside = new THREE.Vector3(-1, 0, 0).applyQuaternion(controllerRotation);
-  const rightOutside = new THREE.Vector3(1, 0, 0).applyQuaternion(controllerRotation);
+  const leftOutside = new THREE.Vector3(1, 0, 0).applyQuaternion(controllerRotation);
+  const rightOutside = new THREE.Vector3(-1, 0, 0).applyQuaternion(controllerRotation);
   closeVector(leftFace, leftOutside);
   closeVector(rightFace, rightOutside);
 });
@@ -43,7 +43,7 @@ test('shield handle axis follows the controller wrist-to-fingers direction', () 
   const controllerRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.15, 0.45, 0.08));
   for (const hand of ['left', 'right']) {
     const handleAxis = new THREE.Vector3(1, 0, 0).applyQuaternion(heldShieldRotation(controllerRotation, hand));
-    const fingers = new THREE.Vector3(0, 0, hand === 'left' ? 1 : -1).applyQuaternion(controllerRotation);
+    const fingers = new THREE.Vector3(0, 0, hand === 'left' ? -1 : 1).applyQuaternion(controllerRotation);
     assert.ok(Math.abs(handleAxis.dot(fingers)) > 1 - 1e-7);
   }
 });

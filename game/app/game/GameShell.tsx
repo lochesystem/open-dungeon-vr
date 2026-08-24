@@ -230,7 +230,7 @@ export function GameShell() {
         </section>
       )}
 
-      <footer className="build-label">BUILD D3.3.4 · LOCAL · {xrActive ? 'XR ATIVO' : 'DESKTOP'}</footer>
+      <footer className="build-label">BUILD D3.3.5 · LOCAL · {xrActive ? 'XR ATIVO' : 'DESKTOP'}</footer>
     </main>
   );
 }

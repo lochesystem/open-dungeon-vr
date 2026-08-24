@@ -9,7 +9,7 @@ export function heldShieldRotation(
   holderWorldRotation: THREE.Quaternion,
   hand: ShieldHand,
 ): THREE.Quaternion {
-  const outwardYaw = hand === 'left' ? -Math.PI / 2 : Math.PI / 2;
+  const outwardYaw = hand === 'left' ? Math.PI / 2 : -Math.PI / 2;
   const backhandAlignment = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, outwardYaw, 0));
   return holderWorldRotation.clone().multiply(backhandAlignment);
 }

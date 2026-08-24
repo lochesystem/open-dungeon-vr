@@ -17,6 +17,13 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Homologação prolongada da D1 no Quest.
 - D3 — Laboratório de combate estático.
 
+## [0.10.5] — 2026-08-24
+
+### Corrigido
+
+- Invertido o sinal lateral da pose espelhada do escudo após homologação visual no Meta Quest.
+- Distância, alça, física e regras de bloqueio permanecem inalteradas.
+
 ## [0.10.4] — 2026-08-24
 
 ### Corrigido

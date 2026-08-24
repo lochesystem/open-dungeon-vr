@@ -256,6 +256,12 @@ O jogador abre a bolsa, guarda uma poção, uma chave e o cubo rúnico, fecha, c
 - [x] Alinhar a alça no sentido punho–dedos em ambas as mãos.
 - [ ] Homologar distância lateral final no Meta Quest.
 
+### D3.3.5 — Inversão final do lado de apoio
+
+- [x] Inverter somente o sinal lateral das poses esquerda e direita.
+- [x] Preservar distância da mão, eixo da alça e comportamento de bloqueio.
+- [ ] Homologar o lado corrigido no Meta Quest.
+
 ### Experiência
 
 O jogador retira espada e escudo, ataca um boneco, bloqueia um golpe mecânico, executa um parry e quebra o alvo. Um painel mostra somente feedback útil e oferece repetição.
