@@ -35,6 +35,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Corrigido
 
+- Geometria do arco passa do plano frontal `XY` para o plano vertical de disparo `YZ`, alinhando a curvatura, a puxada da corda e a flecha com a direção para a qual a mão aponta.
 - Cotovelos do Guardião passam a flexionar para a frente; a compensação dos pulsos acompanha o eixo corrigido.
 - Removida a rotação independente da maça no clipe de ataque, que fazia a arma se dessincronizar da mão direita.
 - UVs de piso, paredes, pilares, portal, altar e pedestais passam a usar densidade em metros por face, eliminando texturas esticadas por proporções diferentes.

@@ -60,6 +60,7 @@ import {
   BOW_MAX_DRAW_METERS,
   arrowFlightStep,
   arrowLaunchSpeed,
+  bowLimbControlPoints,
   bowDrawDistance,
   bowDrawPower,
   bowHapticStep,
@@ -1039,18 +1040,11 @@ export class OpenDungeonEngine {
     });
     const bow = new THREE.Group();
     bow.name = 'foundation-bow';
-    const upperCurve = new THREE.CubicBezierCurve3(
-      new THREE.Vector3(0, 0.1, 0),
-      new THREE.Vector3(0.24, 0.28, 0),
-      new THREE.Vector3(0.2, 0.56, 0),
-      new THREE.Vector3(0, 0.7, 0),
+    const curveFromPoints = (points: ReturnType<typeof bowLimbControlPoints>) => new THREE.CubicBezierCurve3(
+      ...points.map(({ x, y, z }) => new THREE.Vector3(x, y, z)) as [THREE.Vector3, THREE.Vector3, THREE.Vector3, THREE.Vector3],
     );
-    const lowerCurve = new THREE.CubicBezierCurve3(
-      new THREE.Vector3(0, -0.1, 0),
-      new THREE.Vector3(0.24, -0.28, 0),
-      new THREE.Vector3(0.2, -0.56, 0),
-      new THREE.Vector3(0, -0.7, 0),
-    );
+    const upperCurve = curveFromPoints(bowLimbControlPoints(1));
+    const lowerCurve = curveFromPoints(bowLimbControlPoints(-1));
     const upperLimb = new THREE.Mesh(this.geometry(new THREE.TubeGeometry(upperCurve, 18, 0.025, 7, false)), bowMaterial);
     const lowerLimb = new THREE.Mesh(this.geometry(new THREE.TubeGeometry(lowerCurve, 18, 0.025, 7, false)), bowMaterial);
     const bowGrip = new THREE.Mesh(this.geometry(new THREE.CylinderGeometry(0.038, 0.042, 0.22, 10)), swordGripMaterial);

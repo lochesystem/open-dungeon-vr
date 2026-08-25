@@ -12,8 +12,19 @@ import {
   bowDrawDistance,
   bowDrawPower,
   bowHapticStep,
+  bowLimbControlPoints,
   canArrowDealDamage,
 } from '../app/game/bow.ts';
+
+test('bow limbs share the vertical firing plane instead of facing sideways', () => {
+  for (const direction of [1, -1]) {
+    const points = bowLimbControlPoints(direction);
+    assert.ok(points.every(({ x }) => x === 0));
+    assert.ok(points.slice(1, 3).every(({ z }) => z < 0));
+    assert.equal(points[0].z, 0);
+    assert.equal(points[3].z, 0);
+  }
+});
 
 test('bow strength comes only from pulling the string backward in local space', () => {
   assert.equal(bowDrawDistance({ x: 0.4, y: -0.3, z: -0.2 }), 0);

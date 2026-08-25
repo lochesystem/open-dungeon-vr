@@ -7,6 +7,15 @@ export const ARROW_GRAVITY = 7.2;
 
 export type Point3 = { x: number; y: number; z: number };
 
+export function bowLimbControlPoints(verticalDirection: 1 | -1): [Point3, Point3, Point3, Point3] {
+  return [
+    { x: 0, y: verticalDirection * 0.1, z: 0 },
+    { x: 0, y: verticalDirection * 0.28, z: -0.24 },
+    { x: 0, y: verticalDirection * 0.56, z: -0.2 },
+    { x: 0, y: verticalDirection * 0.7, z: 0 },
+  ];
+}
+
 export function bowDrawDistance(localStringHand: Point3): number {
   return Math.min(BOW_MAX_DRAW_METERS, Math.max(0, localStringHand.z));
 }
