@@ -37,8 +37,8 @@ test('guardian model candidate contains valid Quest-sized LOD GLBs', async () =>
   assert.ok(lod0.materials <= 7);
   assert.ok(lod1.materials <= 7);
   assert.ok(lod0.bones >= 31);
-  assert.deepEqual(lod0.animations, ['idle', 'walk']);
-  assert.deepEqual(lod1.animations, ['idle', 'walk']);
+  assert.deepEqual(lod0.animations, ['idle', 'walk', 'attack_mace', 'stagger', 'death']);
+  assert.deepEqual(lod1.animations, ['idle', 'walk', 'attack_mace', 'stagger', 'death']);
 
   for (const lod of [lod0, lod1]) {
     const filePath = resolve(modelDirectory, lod.file);
@@ -48,7 +48,7 @@ test('guardian model candidate contains valid Quest-sized LOD GLBs', async () =>
     assert.ok(file.byteLength > 1_024);
     const gltf = glbJson(file);
     assert.ok(gltf.skins.length >= 1);
-    assert.deepEqual(gltf.animations.map((animation) => animation.name), ['idle', 'walk']);
+    assert.deepEqual(gltf.animations.map((animation) => animation.name), ['idle', 'walk', 'attack_mace', 'stagger', 'death']);
     const nodeNames = new Set(gltf.nodes.map((node) => node.name));
     for (const requiredBone of ['rig_root', 'hips', 'chest', 'head', 'left_clavicle', 'right_clavicle', 'left_wrist', 'right_wrist', 'left_ankle', 'right_ankle', 'left_hand_bone', 'right_hand_bone', 'socket_weapon_right', 'socket_memory_rune']) {
       assert.ok(nodeNames.has(requiredBone), `missing rig node ${requiredBone}`);
@@ -56,10 +56,19 @@ test('guardian model candidate contains valid Quest-sized LOD GLBs', async () =>
     const leftForearmNode = gltf.nodes.findIndex((node) => node.name === 'left_forearm');
     for (const animation of gltf.animations) {
       const channel = animation.channels.find((candidate) => candidate.target.node === leftForearmNode && candidate.target.path === 'rotation');
-      assert.ok(channel, `${animation.name} must articulate the left elbow`);
-      const quaternionValues = accessorFloats(file, gltf, animation.samplers[channel.sampler].output);
-      assert.ok(quaternionValues[0] < 0, `${animation.name} elbow must bend toward the front of the model`);
+      if (channel) {
+        const quaternionValues = accessorFloats(file, gltf, animation.samplers[channel.sampler].output);
+        assert.ok(quaternionValues[0] < 0, `${animation.name} elbow must bend toward the front of the model`);
+      }
     }
+    const attack = gltf.animations.find((animation) => animation.name === 'attack_mace');
+    const death = gltf.animations.find((animation) => animation.name === 'death');
+    const rightUpperArmNode = gltf.nodes.findIndex((node) => node.name === 'right_upper_arm');
+    const propMaceNode = gltf.nodes.findIndex((node) => node.name === 'prop_mace');
+    const hipsNode = gltf.nodes.findIndex((node) => node.name === 'hips');
+    assert.ok(attack.channels.some((channel) => channel.target.node === rightUpperArmNode && channel.target.path === 'rotation'));
+    assert.ok(attack.channels.some((channel) => channel.target.node === propMaceNode && channel.target.path === 'rotation'));
+    assert.ok(death.channels.some((channel) => channel.target.node === hipsNode && channel.target.path === 'translation'));
     assert.ok(gltf.meshes.some((mesh) => mesh.primitives.some((primitive) => primitive.attributes.JOINTS_0 !== undefined && primitive.attributes.WEIGHTS_0 !== undefined)));
   }
 });

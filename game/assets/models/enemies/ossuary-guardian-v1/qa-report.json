@@ -1,6 +1,6 @@
 {
   "id": "enemy_ossuary_guardian_v1",
-  "generatedAt": "2026-08-25T00:08:14.622Z",
+  "generatedAt": "2026-08-25T00:27:07.187Z",
   "generator": "scripts/generate-ossuary-guardian.mjs",
   "concept": "../../../concepts/ossuary-guardian-v1/ossuary-guardian-turnaround-v1.png",
   "targetRig": "humanoid_large_v1",
@@ -14,12 +14,15 @@
       "bones": 31,
       "animations": [
         "idle",
-        "walk"
+        "walk",
+        "attack_mace",
+        "stagger",
+        "death"
       ],
       "bounds": {
-        "width": 1.832,
+        "width": 1.632,
         "height": 2.238,
-        "depth": 0.575
+        "depth": 0.55
       }
     },
     "lod1": {
@@ -31,10 +34,13 @@
       "bones": 31,
       "animations": [
         "idle",
-        "walk"
+        "walk",
+        "attack_mace",
+        "stagger",
+        "death"
       ],
       "bounds": {
-        "width": 1.773,
+        "width": 1.573,
         "height": 2.222,
         "depth": 0.55
       }

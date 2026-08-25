@@ -14,10 +14,10 @@
   "rig": {
     "bones": 31,
     "skinning": "rigid-per-modular-piece",
-    "animations": ["idle", "walk"],
+    "animations": ["idle", "walk", "attack_mace", "stagger", "death"],
     "articulatedJoints": ["left_clavicle", "right_clavicle", "left_wrist", "right_wrist", "left_ankle", "right_ankle"],
     "sockets": ["socket_hand_left", "socket_hand_right", "socket_weapon_right", "socket_memory_rune", "socket_hit_head", "socket_hit_chest"]
   },
-  "status": "rigged-candidate-awaiting-motion-approval",
+  "status": "rigged-candidate-awaiting-combat-motion-approval",
   "approved": false
 }

@@ -335,7 +335,7 @@ A D4.2 fechou o primeiro ciclo ofensivo e abriu caminho para tornar o Guardião 
 - [ ] Texturas próprias.
 - [x] Rig humanoide `humanoid_large_v1` com 31 ossos, clavículas e juntas articuladas, skinning e sockets.
 - [x] Idle e caminhada incorporados aos dois GLBs.
-- [ ] Ataque, stagger e morte incorporados aos dois GLBs.
+- [x] Ataque descendente, stagger e morte incorporados aos dois GLBs.
 - [x] Dois níveis de detalhe candidatos para o Quest (4.498 e 1.886 triângulos).
 - [ ] Substituição do blockout sem alterar gameplay.
 

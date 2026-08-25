@@ -56,8 +56,17 @@ function playAnimation(name) {
   document.querySelectorAll('[data-animation]').forEach((button) => button.classList.toggle('active', button.dataset.animation === name));
   if (!mixer || !candidate) return;
   mixer.stopAllAction();
+  const skinnedMesh = candidate.getObjectByProperty('isSkinnedMesh', true);
+  skinnedMesh?.skeleton.pose();
   const clip = THREE.AnimationClip.findByName(candidate.animations, name);
-  if (clip) mixer.clipAction(clip).reset().play();
+  if (clip) {
+    const action = mixer.clipAction(clip).reset();
+    if (['attack_mace', 'stagger', 'death'].includes(name)) {
+      action.setLoop(THREE.LoopOnce, 1);
+      action.clampWhenFinished = true;
+    }
+    action.play();
+  }
 }
 
 async function showLod(lod) {

@@ -150,7 +150,7 @@ function addMace(root, materials, detail) {
   const radial = detail === 0 ? 12 : 6;
   const mace = new THREE.Group();
   mace.name = 'weapon_mace_assembly';
-  mace.position.set(0.86, 0.12, 0);
+  mace.position.set(0.66, 0.5, 0.055);
   addMesh(mace, 'mace_grip', new THREE.CylinderGeometry(0.035, 0.04, 0.78, radial), materials.leather, [0, 0.39, 0]);
   addMesh(mace, 'mace_pommel', new THREE.SphereGeometry(0.065, radial, Math.max(5, radial / 2)), materials.armorEdge, [0, -0.02, 0]);
   addMesh(mace, 'mace_neck', new THREE.CylinderGeometry(0.07, 0.05, 0.16, radial), materials.armorEdge, [0, 0.84, 0]);
@@ -200,7 +200,7 @@ function buildSkeleton() {
   addBone('socket_memory_rune', bones.chest, [0, 0.03, 0.27]);
   addBone('socket_hit_head', bones.head, [0, 0.05, 0.12]);
   addBone('socket_hit_chest', bones.chest, [0, 0, 0.16]);
-  bones.propMace = addBone('prop_mace', bones.rigRoot, [0.86, 0.12, 0]);
+  bones.propMace = addBone('prop_mace', bones.rightHand, [0.18, -0.09, 0.04]);
   return bones;
 }
 
@@ -281,7 +281,46 @@ function buildAnimations(bones) {
     rotationTrack(bones.chest, walkTimes, walkTimes.map((time) => [0, Math.sin(phaseAt(time)) * 0.045, Math.sin(phaseAt(time) * 2) * 0.012])),
     rotationTrack(bones.head, walkTimes, walkTimes.map((time) => [0, -Math.sin(phaseAt(time)) * 0.025, 0])),
   ]);
-  return [idle, walk];
+
+  const attackTimes = [0, 0.25, 0.62, 0.88, 1.12, 1.5];
+  const attackMace = new THREE.AnimationClip('attack_mace', 1.5, [
+    rotationTrack(bones.hips, attackTimes, [[0, 0, 0], [0, -0.08, 0.02], [0, -0.18, 0.04], [0, 0.16, -0.025], [0, 0.09, -0.015], [0, 0, 0]]),
+    rotationTrack(bones.chest, attackTimes, [[0, 0, 0], [-0.04, -0.12, 0.02], [-0.08, -0.26, 0.04], [0.12, 0.24, -0.05], [0.05, 0.12, -0.025], [0, 0, 0]]),
+    rotationTrack(bones.head, attackTimes, [[0, 0, 0], [0.03, 0.08, 0], [0.05, 0.12, 0], [-0.08, -0.08, 0], [-0.03, -0.03, 0], [0, 0, 0]]),
+    rotationTrack(bones.rightClavicle, attackTimes, [[0, 0, -0.02], [-0.08, 0, -0.12], [-0.18, 0.04, -0.26], [0.04, 0, -0.05], [0.02, 0, -0.03], [0, 0, -0.02]]),
+    rotationTrack(bones.rightUpperArm, attackTimes, [[0, 0, 0.06], [-0.12, 0, 0.65], [-0.18, 0, 2.48], [-0.58, 0.04, 0.72], [-0.34, 0.02, 0.34], [0, 0, 0.06]]),
+    rotationTrack(bones.rightForearm, attackTimes, [[-0.4, 0, -0.08], [-0.62, 0, -0.12], [-0.95, 0, -0.16], [-0.25, 0, -0.06], [-0.48, 0, -0.09], [-0.4, 0, -0.08]]),
+    rotationTrack(bones.rightWrist, attackTimes, [[0.14, 0, 0.028], [0.22, 0, 0.03], [0.32, 0, 0.035], [0.08, 0, 0.018], [0.16, 0, 0.025], [0.14, 0, 0.028]]),
+    rotationTrack(bones.propMace, attackTimes, [[0, 0, 0], [-0.08, 0, 0.2], [-0.12, 0, 0.58], [0.15, 0, 2.78], [0.08, 0, 2.18], [0, 0, 0]]),
+    rotationTrack(bones.leftUpperArm, attackTimes, [[0, 0, -0.06], [-0.18, 0, -0.14], [-0.24, 0, -0.18], [0.14, 0, -0.1], [0.06, 0, -0.08], [0, 0, -0.06]]),
+    rotationTrack(bones.leftForearm, attackTimes, [[-0.4, 0, 0.08], [-0.52, 0, 0.12], [-0.58, 0, 0.14], [-0.34, 0, 0.09], [-0.38, 0, 0.08], [-0.4, 0, 0.08]]),
+  ]);
+
+  const staggerTimes = [0, 0.08, 0.22, 0.44, 0.68];
+  const stagger = new THREE.AnimationClip('stagger', 0.68, [
+    positionTrack(bones.hips, staggerTimes, [[0, 0.86, 0], [0, 0.85, -0.035], [0, 0.83, -0.075], [0, 0.85, -0.03], [0, 0.86, 0]]),
+    rotationTrack(bones.chest, staggerTimes, [[0, 0, 0], [-0.08, 0, 0], [-0.2, 0.04, 0.04], [-0.07, -0.02, -0.015], [0, 0, 0]]),
+    rotationTrack(bones.head, staggerTimes, [[0, 0, 0], [0.1, 0, 0], [0.22, -0.08, 0.05], [0.07, 0.03, -0.02], [0, 0, 0]]),
+    rotationTrack(bones.leftUpperArm, staggerTimes, [[0, 0, -0.06], [0.1, 0, -0.16], [0.26, 0, -0.32], [0.08, 0, -0.12], [0, 0, -0.06]]),
+    rotationTrack(bones.rightUpperArm, staggerTimes, [[0, 0, 0.06], [0.1, 0, 0.16], [0.26, 0, 0.32], [0.08, 0, 0.12], [0, 0, 0.06]]),
+    rotationTrack(bones.leftForearm, staggerTimes, [[-0.4, 0, 0.08], [-0.3, 0, 0.12], [-0.12, 0, 0.18], [-0.34, 0, 0.1], [-0.4, 0, 0.08]]),
+    rotationTrack(bones.rightForearm, staggerTimes, [[-0.4, 0, -0.08], [-0.3, 0, -0.12], [-0.12, 0, -0.18], [-0.34, 0, -0.1], [-0.4, 0, -0.08]]),
+  ]);
+
+  const deathTimes = [0, 0.25, 0.55, 0.95, 1.35, 1.7];
+  const death = new THREE.AnimationClip('death', 1.7, [
+    positionTrack(bones.hips, deathTimes, [[0, 0.86, 0], [-0.04, 0.82, 0], [-0.12, 0.68, -0.04], [-0.25, 0.38, -0.1], [-0.34, 0.18, -0.14], [-0.36, 0.14, -0.15]]),
+    rotationTrack(bones.hips, deathTimes, [[0, 0, 0], [0.05, 0, -0.12], [0.12, 0, -0.42], [0.18, 0.04, -0.9], [0.2, 0.08, -1.32], [0.2, 0.08, -1.4]]),
+    rotationTrack(bones.chest, deathTimes, [[0, 0, 0], [-0.08, 0.05, 0.04], [-0.16, 0.12, -0.08], [-0.22, 0.18, -0.18], [-0.26, 0.2, -0.22], [-0.26, 0.2, -0.22]]),
+    rotationTrack(bones.head, deathTimes, [[0, 0, 0], [0.08, -0.06, 0], [0.18, -0.14, 0.08], [0.26, -0.2, 0.14], [0.3, -0.24, 0.18], [0.3, -0.24, 0.18]]),
+    rotationTrack(bones.leftUpperLeg, deathTimes, [[0, 0, 0], [0.08, 0, 0.04], [0.2, 0, 0.12], [0.34, 0, 0.22], [0.42, 0, 0.28], [0.42, 0, 0.28]]),
+    rotationTrack(bones.rightUpperLeg, deathTimes, [[0, 0, 0], [-0.04, 0, -0.03], [-0.12, 0, -0.08], [-0.24, 0, -0.14], [-0.32, 0, -0.2], [-0.32, 0, -0.2]]),
+    rotationTrack(bones.leftLowerLeg, deathTimes, [[0, 0, 0], [0.08, 0, 0], [0.22, 0, 0], [0.38, 0, 0], [0.48, 0, 0], [0.48, 0, 0]]),
+    rotationTrack(bones.rightLowerLeg, deathTimes, [[0, 0, 0], [0.12, 0, 0], [0.3, 0, 0], [0.5, 0, 0], [0.62, 0, 0], [0.62, 0, 0]]),
+    rotationTrack(bones.leftUpperArm, deathTimes, [[0, 0, -0.06], [0.08, 0, -0.16], [0.2, 0, -0.34], [0.32, 0, -0.48], [0.38, 0, -0.55], [0.38, 0, -0.55]]),
+    rotationTrack(bones.rightUpperArm, deathTimes, [[0, 0, 0.06], [0.04, 0, 0.12], [0.12, 0, 0.24], [0.2, 0, 0.36], [0.24, 0, 0.44], [0.24, 0, 0.44]]),
+  ]);
+  return [idle, walk, attackMace, stagger, death];
 }
 
 function rigGuardian(sourceRoot) {

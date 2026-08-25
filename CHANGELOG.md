@@ -21,6 +21,9 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - GIF de validação do ciclo de caminhada do modelo rigado.
 - Juntas visíveis nos cotovelos, pulsos, joelhos e tornozelos, com participação independente no ciclo de caminhada.
 - Clavículas articuladas e braços refinados com ombros móveis, cotovelos flexionados e compensação dos pulsos.
+- Clipes `attack_mace`, `stagger` e `death` incorporados aos dois LODs e selecionáveis no visualizador.
+- Maça ligada à mão direita, com articulação própria para a cabeça ultrapassar a mão no impacto descendente.
+- GIF combinado de ataque, stagger e morte para aprovação visual.
 
 ### Corrigido
 
@@ -30,8 +33,9 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 - LOD0 possui 4.498 triângulos e LOD1 possui 1.886, redução de aproximadamente 58%.
 - Teste verifica cabeçalho GLB, existência dos arquivos, escala, materiais e orçamento dos dois LODs.
-- Teste abre o conteúdo dos GLBs e confirma skins, pesos, ossos obrigatórios, sockets e os dois clipes de animação.
+- Teste abre o conteúdo dos GLBs e confirma skins, pesos, ossos obrigatórios, sockets e os cinco clipes de animação.
 - Teste lê os quaternions exportados e impede regressão da direção anatômica dos cotovelos.
+- Teste confirma canais próprios do braço armado, da maça e da queda do quadril.
 
 ### Planejado
 
