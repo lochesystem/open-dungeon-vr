@@ -184,7 +184,8 @@ function buildSkeleton() {
 
   for (const side of ['left', 'right']) {
     const sign = side === 'left' ? -1 : 1;
-    bones[`${side}UpperArm`] = addBone(`${side}_upper_arm`, bones.chest, [sign * 0.48, 0.18, 0]);
+    bones[`${side}Clavicle`] = addBone(`${side}_clavicle`, bones.chest, [sign * 0.18, 0.2, 0]);
+    bones[`${side}UpperArm`] = addBone(`${side}_upper_arm`, bones[`${side}Clavicle`], [sign * 0.3, -0.02, 0]);
     bones[`${side}Forearm`] = addBone(`${side}_forearm`, bones[`${side}UpperArm`], [0, -0.48, 0]);
     bones[`${side}Wrist`] = addBone(`${side}_wrist`, bones[`${side}Forearm`], [0, -0.4, 0.015]);
     bones[`${side}Hand`] = addBone(`${side}_hand_bone`, bones[`${side}Wrist`], [0, -0.05, 0]);
@@ -214,7 +215,8 @@ function boneForPart(name, bones) {
     if (/wrist/.test(name)) return bones[`${side}Wrist`];
     if (/finger|hand/.test(name)) return bones[`${side}Hand`];
     if (/forearm|bracer|elbow/.test(name)) return bones[`${side}Forearm`];
-    if (/upper_arm|shoulder|pauldron/.test(name)) return bones[`${side}UpperArm`];
+    if (/clavicle|shoulder|pauldron/.test(name)) return bones[`${side}Clavicle`];
+    if (/upper_arm/.test(name)) return bones[`${side}UpperArm`];
     if (/ankle/.test(name)) return bones[`${side}Ankle`];
     if (/boot|toe/.test(name)) return bones[`${side}Foot`];
     if (/shin|greave|knee/.test(name)) return bones[`${side}LowerLeg`];
@@ -243,8 +245,14 @@ function buildAnimations(bones) {
   const idle = new THREE.AnimationClip('idle', 2.4, [
     rotationTrack(bones.chest, idleTimes, [[0, 0, 0], [0, 0.035, 0.025], [0, 0, 0]]),
     rotationTrack(bones.head, idleTimes, [[0, 0, 0], [-0.025, -0.08, 0], [0, 0, 0]]),
+    rotationTrack(bones.leftClavicle, idleTimes, [[0, 0, 0.015], [0, -0.018, 0.03], [0, 0, 0.015]]),
+    rotationTrack(bones.rightClavicle, idleTimes, [[0, 0, -0.015], [0, 0.018, -0.03], [0, 0, -0.015]]),
     rotationTrack(bones.leftUpperArm, idleTimes, [[0, 0, 0], [0.025, 0, -0.02], [0, 0, 0]]),
     rotationTrack(bones.rightUpperArm, idleTimes, [[0, 0, 0], [-0.025, 0, 0.02], [0, 0, 0]]),
+    rotationTrack(bones.leftForearm, idleTimes, [[0.34, 0, 0.075], [0.38, 0, 0.09], [0.34, 0, 0.075]]),
+    rotationTrack(bones.rightForearm, idleTimes, [[0.34, 0, -0.075], [0.38, 0, -0.09], [0.34, 0, -0.075]]),
+    rotationTrack(bones.leftWrist, idleTimes, [[-0.12, 0, -0.025], [-0.14, 0, -0.025], [-0.12, 0, -0.025]]),
+    rotationTrack(bones.rightWrist, idleTimes, [[-0.12, 0, 0.025], [-0.14, 0, 0.025], [-0.12, 0, 0.025]]),
   ]);
 
   const walkTimes = Array.from({ length: 9 }, (_, index) => index * 0.1);
@@ -262,12 +270,14 @@ function buildAnimations(bones) {
     rotationTrack(bones.rightAnkle, walkTimes, counterFlex(0.3, 0)),
     rotationTrack(bones.leftFoot, walkTimes, swing(0.08, Math.PI)),
     rotationTrack(bones.rightFoot, walkTimes, swing(0.08, 0)),
-    rotationTrack(bones.leftUpperArm, walkTimes, swing(0.25, Math.PI)),
-    rotationTrack(bones.rightUpperArm, walkTimes, swing(0.25, 0)),
-    rotationTrack(bones.leftForearm, walkTimes, flex(0.12, 0, 0.08)),
-    rotationTrack(bones.rightForearm, walkTimes, flex(0.12, Math.PI, 0.08)),
-    rotationTrack(bones.leftWrist, walkTimes, swing(0.045, Math.PI)),
-    rotationTrack(bones.rightWrist, walkTimes, swing(0.045, 0)),
+    rotationTrack(bones.leftClavicle, walkTimes, walkTimes.map((time) => [0, Math.sin(phaseAt(time)) * 0.035, 0.02 + Math.sin(phaseAt(time) * 2) * 0.018])),
+    rotationTrack(bones.rightClavicle, walkTimes, walkTimes.map((time) => [0, -Math.sin(phaseAt(time)) * 0.035, -0.02 - Math.sin(phaseAt(time) * 2) * 0.018])),
+    rotationTrack(bones.leftUpperArm, walkTimes, walkTimes.map((time) => [Math.sin(phaseAt(time) + Math.PI) * 0.4, Math.sin(phaseAt(time)) * 0.035, -0.06])),
+    rotationTrack(bones.rightUpperArm, walkTimes, walkTimes.map((time) => [Math.sin(phaseAt(time)) * 0.4, -Math.sin(phaseAt(time)) * 0.035, 0.06])),
+    rotationTrack(bones.leftForearm, walkTimes, walkTimes.map((time) => [0.4 + Math.max(0, Math.sin(phaseAt(time))) * 0.28, 0, 0.08 + Math.abs(Math.sin(phaseAt(time))) * 0.035])),
+    rotationTrack(bones.rightForearm, walkTimes, walkTimes.map((time) => [0.4 + Math.max(0, Math.sin(phaseAt(time) + Math.PI)) * 0.28, 0, -0.08 - Math.abs(Math.sin(phaseAt(time))) * 0.035])),
+    rotationTrack(bones.leftWrist, walkTimes, walkTimes.map((time) => [-0.14 - Math.max(0, Math.sin(phaseAt(time))) * 0.08, 0, -0.028])),
+    rotationTrack(bones.rightWrist, walkTimes, walkTimes.map((time) => [-0.14 - Math.max(0, Math.sin(phaseAt(time) + Math.PI)) * 0.08, 0, 0.028])),
     rotationTrack(bones.chest, walkTimes, walkTimes.map((time) => [0, Math.sin(phaseAt(time)) * 0.045, Math.sin(phaseAt(time) * 2) * 0.012])),
     rotationTrack(bones.head, walkTimes, walkTimes.map((time) => [0, -Math.sin(phaseAt(time)) * 0.025, 0])),
   ]);
@@ -337,6 +347,10 @@ function buildGuardian(detail) {
   chest.position.y = 1.34;
   addMesh(chest, 'spine', new THREE.CylinderGeometry(0.09, 0.11, 0.52, detail === 0 ? 10 : 6), materials.boneDark, [0, -0.08, -0.05]);
   addRibs(chest, materials, detail);
+  for (const side of ['left', 'right']) {
+    const sign = side === 'left' ? -1 : 1;
+    addMesh(chest, `${side}_clavicle_bone`, new THREE.CylinderGeometry(0.038, 0.045, 0.34, detail === 0 ? 8 : 5), materials.bone, [sign * 0.25, 0.18, 0.02], [1, 1, 1], [0, 0, Math.PI / 2]);
+  }
   addMesh(chest, 'back_plate', new THREE.BoxGeometry(0.54, 0.52, 0.1), materials.armor, [0, 0.01, -0.17], [1, 1, 1]);
   addMesh(chest, 'sternum_plate', new THREE.DodecahedronGeometry(0.23, 0), materials.armor, [0, 0.02, 0.17], [1.15, 1.35, 0.34]);
   addMesh(chest, 'memory_rune', new THREE.OctahedronGeometry(0.115, 0), materials.rune, [0, 0.03, 0.265], [0.84, 1.25, 0.28]);

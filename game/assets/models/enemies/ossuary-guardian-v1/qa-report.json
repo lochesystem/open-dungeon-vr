@@ -1,17 +1,17 @@
 {
   "id": "enemy_ossuary_guardian_v1",
-  "generatedAt": "2026-08-24T23:53:31.543Z",
+  "generatedAt": "2026-08-24T23:59:05.262Z",
   "generator": "scripts/generate-ossuary-guardian.mjs",
   "concept": "../../../concepts/ossuary-guardian-v1/ossuary-guardian-turnaround-v1.png",
   "targetRig": "humanoid_large_v1",
   "lods": {
     "lod0": {
       "file": "ossuary-guardian-lod0.glb",
-      "meshes": 84,
+      "meshes": 86,
       "materials": 7,
-      "vertices": 6117,
-      "triangles": 4434,
-      "bones": 29,
+      "vertices": 6221,
+      "triangles": 4498,
+      "bones": 31,
       "animations": [
         "idle",
         "walk"
@@ -24,11 +24,11 @@
     },
     "lod1": {
       "file": "ossuary-guardian-lod1.glb",
-      "meshes": 62,
+      "meshes": 64,
       "materials": 7,
-      "vertices": 2801,
-      "triangles": 1846,
-      "bones": 29,
+      "vertices": 2869,
+      "triangles": 1886,
+      "bones": 31,
       "animations": [
         "idle",
         "walk"

@@ -3,19 +3,19 @@
 - **Status:** candidato com rig aguardando aprovação de movimento
 - **Origem:** malha modular procedural dirigida pelo concept FULL IA aprovado
 - **Escala:** aproximadamente 2,23 m incluindo a silhueta do crânio
-- **Rig:** `humanoid_large_v1`, 29 ossos e pesos rígidos por peça modular
+- **Rig:** `humanoid_large_v1`, 31 ossos e pesos rígidos por peça modular
 - **Uso atual:** inspeção de forma e movimento; ainda não substitui o blockout do jogo
 
 ## Arquivos
 
-- `ossuary-guardian-lod0.glb` — malha principal, 4.434 triângulos, rig e animações.
-- `ossuary-guardian-lod1.glb` — versão leve, 1.846 triângulos, usando o mesmo rig.
+- `ossuary-guardian-lod0.glb` — malha principal, 4.498 triângulos, rig e animações.
+- `ossuary-guardian-lod1.glb` — versão leve, 1.886 triângulos, usando o mesmo rig.
 - `qa-report.json` — contagem de malhas, materiais, vértices, triângulos e dimensões.
 - `manifest.json` — origem, licença e estado de aprovação.
 - `../../../../artifacts/guardian-model-turntable.gif` — inspeção em uma volta completa do LOD0.
 - `../../../../artifacts/guardian-rig-walk.gif` — validação visual do ciclo de caminhada.
 
-Os GLBs incluem skinning, os clipes `idle` e `walk`, ossos nomeados para cabeça, tronco e membros, sockets nas mãos e pontos específicos para maça, runa e impactos. Cotovelos e joelhos possuem dobradiças visíveis; pulsos e tornozelos possuem ossos próprios. Como o corpo é composto por osso e placas rígidas, cada peça recebe peso integral no osso correspondente, evitando deformação de borracha nas armaduras.
+Os GLBs incluem skinning, os clipes `idle` e `walk`, ossos nomeados para cabeça, tronco e membros, sockets nas mãos e pontos específicos para maça, runa e impactos. Cotovelos e joelhos possuem dobradiças visíveis; clavículas, pulsos e tornozelos possuem ossos próprios. Como o corpo é composto por osso e placas rígidas, cada peça recebe peso integral no osso correspondente, evitando deformação de borracha nas armaduras.
 
 Regeneração determinística:
 
