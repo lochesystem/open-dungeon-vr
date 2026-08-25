@@ -384,6 +384,7 @@ O jogador enfrenta o **Guardião Ossário** numa arena curta. O inimigo patrulha
 - [x] Versionar prompts, fontes e pipeline reproduzível de pós-processamento.
 - [x] Produzir albedo e normal maps repetíveis em 512×512 para o Meta Quest.
 - [x] Aplicar escala física distinta a piso, paredes e estruturas do blockout.
+- [x] Projetar UVs por dimensões reais em cada face, incluindo tampas e laterais cilíndricas, sem alongamento por objeto.
 - [x] Remover a grade visual da fundação sem alterar colisores ou navegação.
 - [x] Limitar o pacote servido a menos de 900 KB e validar dimensões e bordas automaticamente.
 - [ ] Homologar legibilidade, repetição e intensidade dos normals dentro do Meta Quest.

@@ -10,6 +10,8 @@ Primeiro passe visual da sala inicial, produzido com o gerador de imagens integr
 
 Cada fonte de 1.254 px é reduzida e espelhada em quatro quadrantes pelo script `../../../scripts/build-dungeon-textures.mjs`. Isso garante bordas matematicamente repetíveis. O script exporta albedo WebP e normal map PNG em 512×512 para limitar memória, tráfego e ruído visual no Quest.
 
+No runtime, os UVs são projetados por escala física: pedra a cada 5 m de atlas e piso a cada 7 m. Caixas escolhem automaticamente os eixos corretos para cada face; cilindros separam laterais e tampas. Assim, o tamanho aparente dos blocos permanece consistente entre paredes de 24 m, pilares, lintéis, altares e pedestais.
+
 ## Prompts finais
 
 ### Pedra de parede

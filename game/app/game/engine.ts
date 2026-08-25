@@ -55,6 +55,7 @@ import {
   initialGuardianVitals,
   type GuardianVitalState,
 } from './guardianVitals';
+import { mapBoxUvsByWorldScale, mapCylinderUvsByWorldScale, mapPlaneUvsByWorldScale } from './surfaceUv';
 
 export type InteractionSnapshot = {
   canGrab: boolean;
@@ -139,6 +140,8 @@ const GUARDIAN_PATROL = [
   new THREE.Vector3(4.8, 0, -7.2),
 ] as const;
 const VR_PAUSE_MENU_ITEM_COUNT = 8;
+const STONE_TILE_METERS = 5;
+const FLOOR_TILE_METERS = 7;
 
 const PILLAR_COLLIDERS: BoxCollider[] = [-9.6, -6.4, 6.4, 9.6].flatMap((x) =>
   [-9.6, 0, 9.6].map((z) => ({
@@ -601,13 +604,13 @@ export class OpenDungeonEngine {
     return material;
   }
 
-  private surfaceTexture(file: string, repeatX: number, repeatY: number, color = false) {
+  private surfaceTexture(file: string, color = false) {
     const texture = new THREE.TextureLoader().load(
       new URL(`assets/textures/dungeon-v1/${file}`, document.baseURI).toString(),
     );
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(repeatX, repeatY);
+    texture.repeat.set(1, 1);
     texture.colorSpace = color ? THREE.SRGBColorSpace : THREE.NoColorSpace;
     texture.anisotropy = Math.min(this.renderer.capabilities.getMaxAnisotropy(), this.quest ? 4 : 8);
     this.disposableTextures.add(texture);
@@ -690,8 +693,8 @@ export class OpenDungeonEngine {
   }
 
   private buildRoom() {
-    const floorAlbedo = this.surfaceTexture('flagstone-floor-albedo.webp', 3.5, 3.5, true);
-    const floorNormal = this.surfaceTexture('flagstone-floor-normal.png', 3.5, 3.5);
+    const floorAlbedo = this.surfaceTexture('flagstone-floor-albedo.webp', true);
+    const floorNormal = this.surfaceTexture('flagstone-floor-normal.png');
     const floorMaterial = this.material({
       color: 0xd8dfdc,
       map: floorAlbedo,
@@ -701,45 +704,36 @@ export class OpenDungeonEngine {
       metalness: 0.04,
       side: THREE.DoubleSide,
     });
-    const floor = new THREE.Mesh(this.geometry(new THREE.PlaneGeometry(24, 24, 12, 12)), floorMaterial);
+    const floorGeometry = mapPlaneUvsByWorldScale(
+      new THREE.PlaneGeometry(24, 24, 12, 12),
+      FLOOR_TILE_METERS,
+      FLOOR_TILE_METERS,
+    );
+    const floor = new THREE.Mesh(this.geometry(floorGeometry), floorMaterial);
     floor.rotation.x = -Math.PI / 2;
     this.scene.add(floor);
 
     const stone = this.material({
       color: 0xd8ddd6,
-      map: this.surfaceTexture('stone-wall-albedo.webp', 0.42, 0.9, true),
-      normalMap: this.surfaceTexture('stone-wall-normal.png', 0.42, 0.9),
+      map: this.surfaceTexture('stone-wall-albedo.webp', true),
+      normalMap: this.surfaceTexture('stone-wall-normal.png'),
       normalScale: new THREE.Vector2(0.38, 0.38),
       roughness: 0.9,
       metalness: 0.02,
     });
-    const wallStone = this.material({
-      color: 0xd8ddd6,
-      map: this.surfaceTexture('stone-wall-albedo.webp', 2.5, 0.9, true),
-      normalMap: this.surfaceTexture('stone-wall-normal.png', 2.5, 0.9),
-      normalScale: new THREE.Vector2(0.42, 0.42),
-      roughness: 0.91,
-      metalness: 0.02,
-    });
-    const lintelStone = this.material({
-      color: 0xd8ddd6,
-      map: this.surfaceTexture('stone-wall-albedo.webp', 1.25, 0.35, true),
-      normalMap: this.surfaceTexture('stone-wall-normal.png', 1.25, 0.35),
-      normalScale: new THREE.Vector2(0.4, 0.4),
-      roughness: 0.91,
-      metalness: 0.02,
-    });
     const bronze = this.material({
       color: 0xc8a37b,
-      map: this.surfaceTexture('aged-bronze-albedo.webp', 2, 2, true),
-      normalMap: this.surfaceTexture('aged-bronze-normal.png', 2, 2),
+      map: this.surfaceTexture('aged-bronze-albedo.webp', true),
+      normalMap: this.surfaceTexture('aged-bronze-normal.png'),
       normalScale: new THREE.Vector2(0.3, 0.3),
       roughness: 0.56,
       metalness: 0.72,
     });
     const rune = this.material({ color: 0x40e0b4, emissive: 0x18b992, emissiveIntensity: 2.2, roughness: 0.2 });
 
-    const pillarGeometry = this.geometry(new THREE.BoxGeometry(1.7, 4.4, 1.7));
+    const pillarGeometry = this.geometry(mapBoxUvsByWorldScale(
+      new THREE.BoxGeometry(1.7, 4.4, 1.7), STONE_TILE_METERS, STONE_TILE_METERS,
+    ));
     for (const collider of PILLAR_COLLIDERS) {
       const pillar = new THREE.Mesh(pillarGeometry, stone);
       pillar.position.set(collider.x, 2.2, collider.z);
@@ -747,28 +741,36 @@ export class OpenDungeonEngine {
       this.scene.add(pillar);
     }
 
-    const longWall = this.geometry(new THREE.BoxGeometry(24, 4.4, 0.6));
-    const sideWall = this.geometry(new THREE.BoxGeometry(0.6, 4.4, 24));
+    const longWall = this.geometry(mapBoxUvsByWorldScale(
+      new THREE.BoxGeometry(24, 4.4, 0.6), STONE_TILE_METERS, STONE_TILE_METERS,
+    ));
+    const sideWall = this.geometry(mapBoxUvsByWorldScale(
+      new THREE.BoxGeometry(0.6, 4.4, 24), STONE_TILE_METERS, STONE_TILE_METERS,
+    ));
     for (const z of [ROOM_BOUNDS.minZ - 0.3, ROOM_BOUNDS.maxZ + 0.3]) {
-      const wall = new THREE.Mesh(longWall, wallStone);
+      const wall = new THREE.Mesh(longWall, stone);
       wall.position.set(0, 2.2, z);
       this.scene.add(wall);
     }
     for (const x of [ROOM_BOUNDS.minX - 0.3, ROOM_BOUNDS.maxX + 0.3]) {
-      const wall = new THREE.Mesh(sideWall, wallStone);
+      const wall = new THREE.Mesh(sideWall, stone);
       wall.position.set(x, 2.2, 0);
       this.scene.add(wall);
     }
 
     const arch = new THREE.Group();
-    const postGeometry = this.geometry(new THREE.BoxGeometry(1.1, 4.6, 1.4));
-    const topGeometry = this.geometry(new THREE.BoxGeometry(6.2, 1.05, 1.4));
+    const postGeometry = this.geometry(mapBoxUvsByWorldScale(
+      new THREE.BoxGeometry(1.1, 4.6, 1.4), STONE_TILE_METERS, STONE_TILE_METERS,
+    ));
+    const topGeometry = this.geometry(mapBoxUvsByWorldScale(
+      new THREE.BoxGeometry(6.2, 1.05, 1.4), STONE_TILE_METERS, STONE_TILE_METERS,
+    ));
     for (const x of [-2.55, 2.55]) {
       const post = new THREE.Mesh(postGeometry, stone);
       post.position.set(x, 2.3, 0);
       arch.add(post);
     }
-    const top = new THREE.Mesh(topGeometry, lintelStone);
+    const top = new THREE.Mesh(topGeometry, stone);
     top.position.y = 4.45;
     arch.add(top);
 
@@ -781,7 +783,14 @@ export class OpenDungeonEngine {
     arch.position.z = -7.4;
     this.scene.add(arch);
 
-    const altar = new THREE.Mesh(this.geometry(new THREE.CylinderGeometry(1.05, 1.45, 1.1, 8)), stone);
+    const altarGeometry = mapCylinderUvsByWorldScale(
+      new THREE.CylinderGeometry(1.05, 1.45, 1.1, 8),
+      Math.PI * (1.05 + 1.45),
+      1.1,
+      STONE_TILE_METERS,
+      STONE_TILE_METERS,
+    );
+    const altar = new THREE.Mesh(this.geometry(altarGeometry), stone);
     altar.position.set(0, 0.55, 0.5);
     this.scene.add(altar);
     const crystal = new THREE.Mesh(this.geometry(new THREE.OctahedronGeometry(0.5, 0)), rune);
@@ -808,7 +817,9 @@ export class OpenDungeonEngine {
       this.scene.add(guide);
     }
 
-    const pedestal = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(1.16, 1.05, 1.16)), stone);
+    const pedestal = new THREE.Mesh(this.geometry(mapBoxUvsByWorldScale(
+      new THREE.BoxGeometry(1.16, 1.05, 1.16), STONE_TILE_METERS, STONE_TILE_METERS,
+    )), stone);
     pedestal.position.set(CUBE_HOME.x, 0.525, CUBE_HOME.z);
     this.scene.add(pedestal);
     const pedestalRune = new THREE.Mesh(this.geometry(new THREE.CylinderGeometry(0.42, 0.5, 0.1, 8)), bronze);
@@ -827,7 +838,9 @@ export class OpenDungeonEngine {
     runeCube.position.copy(CUBE_HOME);
     this.scene.add(runeCube);
 
-    const keyPedestal = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(1.04, 0.92, 1.04)), stone);
+    const keyPedestal = new THREE.Mesh(this.geometry(mapBoxUvsByWorldScale(
+      new THREE.BoxGeometry(1.04, 0.92, 1.04), STONE_TILE_METERS, STONE_TILE_METERS,
+    )), stone);
     keyPedestal.position.set(KEY_HOME.x, 0.46, KEY_HOME.z);
     this.scene.add(keyPedestal);
     const keyMaterial = this.material({
@@ -853,7 +866,9 @@ export class OpenDungeonEngine {
     missionKey.rotation.set(0.12, 0.3, -0.08);
     this.scene.add(missionKey);
 
-    const potionPedestal = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.92, 0.9, 0.92)), stone);
+    const potionPedestal = new THREE.Mesh(this.geometry(mapBoxUvsByWorldScale(
+      new THREE.BoxGeometry(0.92, 0.9, 0.92), STONE_TILE_METERS, STONE_TILE_METERS,
+    )), stone);
     potionPedestal.position.set(POTION_HOME.x, 0.45, POTION_HOME.z);
     this.scene.add(potionPedestal);
     const potionMaterial = this.material({
@@ -890,7 +905,9 @@ export class OpenDungeonEngine {
     potion.position.copy(POTION_HOME);
     this.scene.add(potion);
 
-    const swordRack = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.9, 0.72, 0.42)), stone);
+    const swordRack = new THREE.Mesh(this.geometry(mapBoxUvsByWorldScale(
+      new THREE.BoxGeometry(0.9, 0.72, 0.42), STONE_TILE_METERS, STONE_TILE_METERS,
+    )), stone);
     swordRack.position.set(SWORD_HOME.x, 0.36, SWORD_HOME.z);
     this.scene.add(swordRack);
     const swordMaterial = this.material({
@@ -920,7 +937,9 @@ export class OpenDungeonEngine {
     sword.rotation.set(0.08, -0.42, 0.12);
     this.scene.add(sword);
 
-    const shieldRack = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.9, 0.72, 0.42)), stone);
+    const shieldRack = new THREE.Mesh(this.geometry(mapBoxUvsByWorldScale(
+      new THREE.BoxGeometry(0.9, 0.72, 0.42), STONE_TILE_METERS, STONE_TILE_METERS,
+    )), stone);
     shieldRack.position.set(SHIELD_HOME.x, 0.36, SHIELD_HOME.z);
     this.scene.add(shieldRack);
     const shieldMaterial = this.material({
@@ -964,7 +983,13 @@ export class OpenDungeonEngine {
     dummyTorso.position.y = 0.16;
     const dummyHead = new THREE.Mesh(this.geometry(new THREE.SphereGeometry(0.22, 16, 12)), dummyMaterial);
     dummyHead.position.y = 0.78;
-    const dummyBase = new THREE.Mesh(this.geometry(new THREE.CylinderGeometry(0.48, 0.58, 0.16, 16)), stone);
+    const dummyBase = new THREE.Mesh(this.geometry(mapCylinderUvsByWorldScale(
+      new THREE.CylinderGeometry(0.48, 0.58, 0.16, 16),
+      Math.PI * (0.48 + 0.58),
+      0.16,
+      STONE_TILE_METERS,
+      STONE_TILE_METERS,
+    )), stone);
     dummyBase.position.y = -1.05;
     trainingDummy.add(dummyPost, dummyTorso, dummyHead, dummyBase);
     this.scene.add(trainingDummy);
@@ -1144,7 +1169,9 @@ export class OpenDungeonEngine {
     const targetRing = new THREE.Mesh(this.geometry(new THREE.TorusGeometry(TARGET_RADIUS, 0.09, 10, 40)), bronze);
     targetRing.position.z = 0.025;
     targetGroup.add(targetRing);
-    const targetStand = new THREE.Mesh(this.geometry(new THREE.BoxGeometry(0.18, 1.5, 0.18)), stone);
+    const targetStand = new THREE.Mesh(this.geometry(mapBoxUvsByWorldScale(
+      new THREE.BoxGeometry(0.18, 1.5, 0.18), STONE_TILE_METERS, STONE_TILE_METERS,
+    )), stone);
     targetStand.position.set(0, -1.45, -0.08);
     targetGroup.add(targetStand);
     this.scene.add(targetGroup);

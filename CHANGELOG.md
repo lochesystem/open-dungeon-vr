@@ -33,6 +33,8 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 - Cotovelos do Guardião passam a flexionar para a frente; a compensação dos pulsos acompanha o eixo corrigido.
 - Removida a rotação independente da maça no clipe de ataque, que fazia a arma se dessincronizar da mão direita.
+- UVs de piso, paredes, pilares, portal, altar e pedestais passam a usar densidade em metros por face, eliminando texturas esticadas por proporções diferentes.
+- Tampas de geometrias cilíndricas recebem projeção planar própria, sem herdar o alongamento das laterais.
 
 ### Validado
 
@@ -42,6 +44,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Teste lê os quaternions exportados e impede regressão da direção anatômica dos cotovelos.
 - Teste confirma o canal do braço armado, a hierarquia mão→maça, a ausência de animação conflitante na arma e a queda do quadril.
 - Testes confirmam dimensões, bordas repetíveis, consumo dos seis mapas e orçamento de download inferior a 900 KB.
+- Testes confirmam densidade física nas três orientações de caixas, pisos, laterais e tampas de cilindros.
 
 ### Planejado
 
