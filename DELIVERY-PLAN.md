@@ -262,6 +262,19 @@ O jogador abre a bolsa, guarda uma poção, uma chave e o cubo rúnico, fecha, c
 - [x] Preservar distância da mão, eixo da alça e comportamento de bloqueio.
 - [ ] Homologar o lado corrigido no Meta Quest.
 
+### D3.4.1 — Arco ambidestro e flecha física
+
+- [x] Arco procedural pode ser puxado, segurado, solto, guardado e recuperado por qualquer mão.
+- [x] Mão oposta encaixa uma flecha ao agarrar a corda dentro de uma área confortável.
+- [x] Potência considera somente a distância puxada para trás, limitada entre 8 e 68 cm.
+- [x] Velocidade varia de 4,5 a 27 m/s; disparos fracos voam, mas não causam dano.
+- [x] Corda, flecha encaixada e feedback háptico acompanham a tensão em tempo real.
+- [x] Flechas usam gravidade, trajetória varrida e podem atingir alvo, boneco ou Guardião.
+- [x] Flechas permanecem cravadas temporariamente e retornam a um pool de oito projéteis.
+- [x] Desktop usa `K`: segurar tensiona e soltar dispara.
+- [x] Reinício limpa corda, flechas, potência, contagem e estados de mão.
+- [ ] Homologar alcance da corda, abertura máxima, direção e conforto nas duas mãos no Meta Quest.
+
 ### Experiência
 
 O jogador retira espada e escudo, ataca um boneco, bloqueia um golpe mecânico, executa um parry e quebra o alvo. Um painel mostra somente feedback útil e oferece repetição.
@@ -509,7 +522,7 @@ O slice não começa do zero: ele amplia uma cadeia já jogável e homologada.
 
 ## 13. Ordem imediata
 
-A etapa ativa é **D4.4 — Visual FULL IA**. Concept e turnaround estão aprovados; o candidato de modelo 3D com dois LODs aguarda inspeção visual antes de receber materiais finais, rig, skinning e animações. A substituição do blockout só ocorre depois desses gates, sem alterar o gameplay já validado. Segundo ataque, parry e stamina permanecem para uma rodada posterior de refinamento do combate.
+As etapas ativas são **D3.4.1 — Arco ambidestro**, aguardando homologação física no Quest, **D4.4 — Visual FULL IA**, com o conjunto de animações do Guardião pronto para integração, e **D5.1 — Materiais da cripta**, com o primeiro kit aplicado. Segundo ataque, parry, stamina, aljava manual e munições especiais permanecem para rodadas posteriores de refinamento.
 
 ## 14. Registro de andamento
 
@@ -518,9 +531,9 @@ A etapa ativa é **D4.4 — Visual FULL IA**. Concept e turnaround estão aprova
 | D0 — Fundação | Concluída | `game/`; testes, lint, build e HTTP 200 em 24/08/2026 |
 | D1 — Mãos e objeto | Concluída | Grab, handoff, arremesso, alvo, recuperação e homologação inicial no Quest |
 | D2 — Bolsa e itens | Concluída | Bolsa 3×2, categorias, poção consumível, chave, recuperação e vida no pulso |
-| D3 — Combate estático | Em andamento | D3.3: espada livre, boneco imortal, escudo e bloqueio direcional |
+| D3 — Combate estático | Em andamento | D3.4.1: arco ambidestro, corda elástica e flecha física |
 | D4 — Primeiro inimigo | Em andamento | D4.4: concept aprovado e candidato GLB com dois LODs em inspeção |
-| D5 — Sala completa | Não iniciada | — |
+| D5 — Sala completa | Em andamento | D5.1: primeiro kit FULL IA de pedra, piso e bronze aplicado |
 | D6 — Micro-expedição | Não iniciada | — |
 | D7 — Quest e conforto | Não iniciada | — |
 | D8 — Co-op 2P | Não iniciada | — |

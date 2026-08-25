@@ -4,6 +4,7 @@ export const INVENTORY_PREVIEW_SCALE = {
   potion: 0.24,
   sword: 0.12,
   shield: 0.12,
+  bow: 0.11,
   rune: 0.2,
 } as const;
 

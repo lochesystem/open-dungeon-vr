@@ -88,6 +88,8 @@ export function GameShell() {
     maximumHealth: 3,
     potionConsumed: false,
     dummyHits: 0,
+    arrowsFired: 0,
+    bowDrawPower: 0,
     blockedAttacks: 0,
     receivedAttacks: 0,
     enemyState: 'idle',
@@ -212,6 +214,7 @@ export function GameShell() {
             <span>08 · IA do Guardião</span>
             <span>09 · Golpe e bloqueio</span>
             <span>10 · Vida, morte e runa</span>
+            <span>11 · Arco e flecha</span>
           </div>
           <p className="notice" role="status">{notice}</p>
         </section>
@@ -229,6 +232,7 @@ export function GameShell() {
             <span><kbd>F</kbd> arremessar</span>
             <span><kbd>G</kbd> beber poção</span>
             <span><kbd>J</kbd> golpe de espada</span>
+            <span><kbd>K</kbd> segurar / soltar arco</span>
             <span><kbd>B</kbd> guardar / retirar</span>
             <span><kbd>R</kbd> reiniciar itens</span>
             <span><kbd>H</kbd> hitboxes</span>
@@ -261,7 +265,7 @@ export function GameShell() {
         </section>
       )}
 
-      <footer className="build-label">BUILD D4.3 · LOCAL · {xrActive ? 'XR ATIVO' : 'DESKTOP'}</footer>
+      <footer className="build-label">BUILD D3.4.1 · D5.1 · LOCAL · {xrActive ? 'XR ATIVO' : 'DESKTOP'}</footer>
     </main>
   );
 }

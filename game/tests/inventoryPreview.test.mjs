@@ -25,6 +25,10 @@ test('shield preview remains inside one inventory socket', () => {
   assert.ok(INVENTORY_PREVIEW_SCALE.shield * 0.92 < INVENTORY_SLOT_CENTER_SPACING);
 });
 
+test('bow preview keeps its full limb span inside one inventory socket', () => {
+  assert.ok(INVENTORY_PREVIEW_SCALE.bow * 1.4 < INVENTORY_SLOT_CENTER_SPACING * 1.05);
+});
+
 test('inventory preview only rocks subtly instead of completing full rotations', () => {
   for (let frame = 0; frame < 240; frame += 1) {
     assert.ok(Math.abs(inventoryPreviewYaw(frame / 60, 1)) <= 0.16);

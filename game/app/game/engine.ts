@@ -56,6 +56,15 @@ import {
   type GuardianVitalState,
 } from './guardianVitals';
 import { mapBoxUvsByWorldScale, mapCylinderUvsByWorldScale, mapPlaneUvsByWorldScale } from './surfaceUv';
+import {
+  BOW_MAX_DRAW_METERS,
+  arrowFlightStep,
+  arrowLaunchSpeed,
+  bowDrawDistance,
+  bowDrawPower,
+  bowHapticStep,
+  canArrowDealDamage,
+} from './bow';
 
 export type InteractionSnapshot = {
   canGrab: boolean;
@@ -69,6 +78,8 @@ export type InteractionSnapshot = {
   maximumHealth: number;
   potionConsumed: boolean;
   dummyHits: number;
+  arrowsFired: number;
+  bowDrawPower: number;
   blockedAttacks: number;
   receivedAttacks: number;
   enemyState: EnemyState;
@@ -123,6 +134,7 @@ const KEY_HOME = new THREE.Vector3(-3, 1.2, 4.2);
 const POTION_HOME = new THREE.Vector3(0, 1.22, 4.15);
 const SWORD_HOME = new THREE.Vector3(-5.1, 1.08, 1.7);
 const SHIELD_HOME = new THREE.Vector3(5.1, 1.12, 1.7);
+const BOW_HOME = new THREE.Vector3(-1.7, 1.18, 4.2);
 const HAZARD_POSITION = new THREE.Vector3(0, 0, 5.45);
 const HAZARD_RADIUS = 0.72;
 const MAX_HEALTH = 3;
@@ -142,6 +154,10 @@ const GUARDIAN_PATROL = [
 const VR_PAUSE_MENU_ITEM_COUNT = 8;
 const STONE_TILE_METERS = 5;
 const FLOOR_TILE_METERS = 7;
+const BOW_STRING_GRAB_RADIUS = 0.24;
+const ARROW_POOL_SIZE = 8;
+const ARROW_TIP_OFFSET = 0.78;
+const ARROW_LOCAL_FORWARD = new THREE.Vector3(0, 0, -1);
 
 const PILLAR_COLLIDERS: BoxCollider[] = [-9.6, -6.4, 6.4, 9.6].flatMap((x) =>
   [-9.6, 0, 9.6].map((z) => ({
@@ -223,6 +239,16 @@ const SHIELD_RACK_COLLIDER: BoxCollider = {
   rotation: 0,
 };
 
+const BOW_RACK_COLLIDER: BoxCollider = {
+  kind: 'box',
+  id: 'foundation-bow-rack',
+  x: BOW_HOME.x,
+  z: BOW_HOME.z,
+  halfX: 0.48,
+  halfZ: 0.23,
+  rotation: 0,
+};
+
 const TRAINING_DUMMY_COLLIDER: CircleCollider = {
   kind: 'circle',
   id: 'training-dummy',
@@ -250,10 +276,11 @@ const ROOM_COLLIDERS: StaticCollider[] = [
   POTION_PEDESTAL_COLLIDER,
   SWORD_RACK_COLLIDER,
   SHIELD_RACK_COLLIDER,
+  BOW_RACK_COLLIDER,
   TRAINING_DUMMY_COLLIDER,
 ];
 
-type ItemId = 'cube' | 'key' | 'potion' | 'sword' | 'shield' | 'rune';
+type ItemId = 'cube' | 'key' | 'potion' | 'sword' | 'shield' | 'bow' | 'rune';
 
 type ItemRuntime = {
   id: ItemId;
@@ -270,6 +297,24 @@ type ItemRuntime = {
   sleeping: boolean;
   lastStoredSlot: number | null;
   secondaryHolder: 'left' | 'right' | null;
+};
+
+type ArrowRuntime = {
+  object: THREE.Group;
+  velocity: THREE.Vector3;
+  previousTip: THREE.Vector3;
+  state: 'ready' | 'nocked' | 'flying' | 'stuck';
+  lifeSeconds: number;
+  drawDistance: number;
+  shooter: Holder | null;
+};
+
+type BowDrawRuntime = {
+  bowHolder: Holder;
+  drawHolder: Holder;
+  arrow: ArrowRuntime;
+  drawDistance: number;
+  lastHapticStep: number;
 };
 
 export class OpenDungeonEngine {
@@ -326,6 +371,14 @@ export class OpenDungeonEngine {
   private readonly guardianWeaponTip: THREE.Object3D;
   private readonly guardianStateMaterial: THREE.MeshBasicMaterial;
   private readonly guardianArmorMaterial: THREE.MeshStandardMaterial;
+  private readonly bowString: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>;
+  private readonly arrows: ArrowRuntime[];
+  private bowDraw: BowDrawRuntime | null = null;
+  private arrowsFired = 0;
+  private bowPower = 0;
+  private readonly arrowTip = new THREE.Vector3();
+  private readonly arrowDirection = new THREE.Vector3();
+  private readonly bowLocalHand = new THREE.Vector3();
   private targetHits = 0;
   private targetPulseSeconds = 0;
   private lastInteractionSignature = '';
@@ -443,6 +496,9 @@ export class OpenDungeonEngine {
     this.items.set('shield', this.createItemRuntime(
       'shield', 'Escudo da fundação', interactables.shield, interactables.shieldMaterial, SHIELD_HOME, 0.46, INVENTORY_PREVIEW_SCALE.shield,
     ));
+    this.items.set('bow', this.createItemRuntime(
+      'bow', 'Arco da fundação', interactables.bow, interactables.bowMaterial, BOW_HOME, 0.34, INVENTORY_PREVIEW_SCALE.bow,
+    ));
     this.items.set('rune', this.createItemRuntime(
       'rune', 'Runa do Guardião', interactables.guardianReward, interactables.guardianRewardMaterial, GUARDIAN_REWARD_HOME, 0.16, INVENTORY_PREVIEW_SCALE.rune,
     ));
@@ -464,6 +520,8 @@ export class OpenDungeonEngine {
     this.guardianWeaponTip = interactables.guardianWeaponTip;
     this.guardianStateMaterial = interactables.guardianStateMaterial;
     this.guardianArmorMaterial = interactables.guardianArmor;
+    this.bowString = interactables.bowString;
+    this.arrows = interactables.arrows;
     this.bagMenuMaterial = this.basicMaterial({
       color: 0x102b28,
       transparent: true,
@@ -967,6 +1025,90 @@ export class OpenDungeonEngine {
     shield.rotation.set(0.08, 0.42, -0.08);
     this.scene.add(shield);
 
+    const bowRack = new THREE.Mesh(this.geometry(mapBoxUvsByWorldScale(
+      new THREE.BoxGeometry(0.96, 0.7, 0.46), STONE_TILE_METERS, STONE_TILE_METERS,
+    )), stone);
+    bowRack.position.set(BOW_HOME.x, 0.35, BOW_HOME.z);
+    this.scene.add(bowRack);
+    const bowMaterial = this.material({
+      color: 0x855b35,
+      emissive: 0x3e2412,
+      emissiveIntensity: 0.72,
+      roughness: 0.72,
+      metalness: 0.08,
+    });
+    const bow = new THREE.Group();
+    bow.name = 'foundation-bow';
+    const upperCurve = new THREE.CubicBezierCurve3(
+      new THREE.Vector3(0, 0.1, 0),
+      new THREE.Vector3(0.24, 0.28, 0),
+      new THREE.Vector3(0.2, 0.56, 0),
+      new THREE.Vector3(0, 0.7, 0),
+    );
+    const lowerCurve = new THREE.CubicBezierCurve3(
+      new THREE.Vector3(0, -0.1, 0),
+      new THREE.Vector3(0.24, -0.28, 0),
+      new THREE.Vector3(0.2, -0.56, 0),
+      new THREE.Vector3(0, -0.7, 0),
+    );
+    const upperLimb = new THREE.Mesh(this.geometry(new THREE.TubeGeometry(upperCurve, 18, 0.025, 7, false)), bowMaterial);
+    const lowerLimb = new THREE.Mesh(this.geometry(new THREE.TubeGeometry(lowerCurve, 18, 0.025, 7, false)), bowMaterial);
+    const bowGrip = new THREE.Mesh(this.geometry(new THREE.CylinderGeometry(0.038, 0.042, 0.22, 10)), swordGripMaterial);
+    const stringMaterial = new THREE.LineBasicMaterial({ color: 0xe4ddd0, transparent: true, opacity: 0.92 });
+    this.disposableMaterials.add(stringMaterial);
+    const stringGeometry = this.geometry(new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, 0.7, 0),
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(0, -0.7, 0),
+    ]));
+    const bowString = new THREE.Line(stringGeometry, stringMaterial);
+    bowString.name = 'bow-string';
+    bow.add(upperLimb, lowerLimb, bowGrip, bowString);
+    bow.position.copy(BOW_HOME);
+    bow.rotation.set(0.04, 0.2, -0.08);
+    this.scene.add(bow);
+
+    const arrowMaterial = this.material({
+      color: 0xb8945d,
+      emissive: 0x33210e,
+      emissiveIntensity: 0.35,
+      roughness: 0.76,
+      metalness: 0.04,
+    });
+    const arrowHeadMaterial = this.material({ color: 0xb9c7c4, roughness: 0.28, metalness: 0.82 });
+    const fletchingMaterial = this.material({ color: 0x5bcbb0, roughness: 0.62, metalness: 0.08 });
+    const shaftGeometry = this.geometry(new THREE.CylinderGeometry(0.008, 0.008, 0.7, 7));
+    const headGeometry = this.geometry(new THREE.ConeGeometry(0.025, 0.1, 5));
+    const fletchingGeometry = this.geometry(new THREE.BoxGeometry(0.055, 0.012, 0.12));
+    const arrows: ArrowRuntime[] = [];
+    for (let index = 0; index < ARROW_POOL_SIZE; index += 1) {
+      const arrow = new THREE.Group();
+      arrow.name = `foundation-arrow-${index + 1}`;
+      const shaft = new THREE.Mesh(shaftGeometry, arrowMaterial);
+      shaft.rotation.x = -Math.PI / 2;
+      shaft.position.z = -0.39;
+      const head = new THREE.Mesh(headGeometry, arrowHeadMaterial);
+      head.rotation.x = -Math.PI / 2;
+      head.position.z = -0.78;
+      const featherA = new THREE.Mesh(fletchingGeometry, fletchingMaterial);
+      featherA.position.z = -0.08;
+      const featherB = new THREE.Mesh(fletchingGeometry, fletchingMaterial);
+      featherB.rotation.z = Math.PI / 2;
+      featherB.position.z = -0.08;
+      arrow.add(shaft, head, featherA, featherB);
+      arrow.visible = false;
+      this.scene.add(arrow);
+      arrows.push({
+        object: arrow,
+        velocity: new THREE.Vector3(),
+        previousTip: new THREE.Vector3(),
+        state: 'ready',
+        lifeSeconds: 0,
+        drawDistance: 0,
+        shooter: null,
+      });
+    }
+
     const dummyMaterial = this.material({
       color: 0x8a6244,
       emissive: 0x1a0c06,
@@ -1196,6 +1338,10 @@ export class OpenDungeonEngine {
       swordMaterial,
       shield,
       shieldMaterial,
+      bow,
+      bowMaterial,
+      bowString,
+      arrows,
       trainingBolt,
       trainingBoltMaterial,
       guardian,
@@ -1424,10 +1570,12 @@ export class OpenDungeonEngine {
     if (event.code === 'KeyR') this.resetObject('Itens e passagem restaurados.');
     if (event.code === 'KeyB') this.toggleDesktopBag();
     if (event.code === 'KeyJ') this.desktopSwordStrike();
+    if (event.code === 'KeyK') this.tryStartDesktopBowDraw();
   };
 
   private readonly onKeyUp = (event: KeyboardEvent) => {
     this.keys.delete(event.code);
+    if (event.code === 'KeyK') this.finishBowDraw('desktop');
   };
 
   private readonly render = (timeMs = performance.now()) => {
@@ -1827,7 +1975,10 @@ export class OpenDungeonEngine {
     this.updateSecondaryItem(this.items.get('potion')!, delta, nowSeconds);
     this.updateSecondaryItem(this.items.get('sword')!, delta, nowSeconds);
     this.updateSecondaryItem(this.items.get('shield')!, delta, nowSeconds);
+    this.updateSecondaryItem(this.items.get('bow')!, delta, nowSeconds);
     this.updateSecondaryItem(this.items.get('rune')!, delta, nowSeconds);
+    this.updateBowMechanics(delta);
+    this.updateArrows(delta);
     this.updateTrainingCombat(delta);
     this.updateShieldTraining(delta);
     if (this.objectState.storedSlot !== null) {
@@ -2054,6 +2205,192 @@ export class OpenDungeonEngine {
       item.object.position.y = item.radius + 0.06 + Math.sin(this.animationSeconds * 2.2) * 0.035;
     }
     item.material.emissiveIntensity = this.itemCanBeGrabbed(item) ? 2.8 : 1.15;
+  }
+
+  private updateBowString(drawDistance: number) {
+    const positions = this.bowString.geometry.getAttribute('position');
+    positions.setXYZ(0, 0, 0.7, 0);
+    positions.setXYZ(1, 0, 0, drawDistance);
+    positions.setXYZ(2, 0, -0.7, 0);
+    positions.needsUpdate = true;
+    this.bowString.geometry.computeBoundingSphere();
+  }
+
+  private updateBowMechanics(delta: number) {
+    const draw = this.bowDraw;
+    if (!draw) {
+      this.bowPower = 0;
+      this.updateBowString(0);
+      return;
+    }
+    const bow = this.items.get('bow')!;
+    if (bow.state.holder !== draw.bowHolder || bow.state.storedSlot !== null) {
+      this.cancelBowDraw();
+      return;
+    }
+
+    if (draw.drawHolder === 'desktop') {
+      draw.drawDistance = Math.min(BOW_MAX_DRAW_METERS, draw.drawDistance + delta * 0.62);
+    } else {
+      const controller = this.controllers.get(draw.drawHolder);
+      if (!controller) {
+        this.cancelBowDraw();
+        return;
+      }
+      controller.getWorldPosition(this.bowLocalHand);
+      bow.object.worldToLocal(this.bowLocalHand);
+      draw.drawDistance = bowDrawDistance(this.bowLocalHand);
+    }
+
+    const power = bowDrawPower(draw.drawDistance);
+    this.bowPower = power;
+    this.updateBowString(draw.drawDistance);
+    bow.object.updateMatrixWorld(true);
+    draw.arrow.object.position.copy(bow.object.localToWorld(this.arrowDirection.set(0, 0, draw.drawDistance)));
+    draw.arrow.object.quaternion.copy(bow.object.getWorldQuaternion(this.worldQuaternion));
+    draw.arrow.object.visible = true;
+    draw.arrow.drawDistance = draw.drawDistance;
+
+    const hapticStep = bowHapticStep(power);
+    if (hapticStep > draw.lastHapticStep) {
+      draw.lastHapticStep = hapticStep;
+      const intensity = 0.16 + power * 0.34;
+      this.pulseController(draw.bowHolder, intensity, 24 + hapticStep * 5);
+      this.pulseController(draw.drawHolder, intensity, 24 + hapticStep * 5);
+      this.playTone(180 + power * 160, 0.035, 0.018);
+    }
+    this.emitInteraction(`Arco tensionado · ${Math.round(power * 100)}% de potência.`);
+  }
+
+  private updateArrows(delta: number) {
+    for (const arrow of this.arrows) {
+      if (arrow.state === 'ready' || arrow.state === 'nocked') continue;
+      arrow.lifeSeconds += delta;
+      if (arrow.state === 'stuck') {
+        if (arrow.lifeSeconds >= 3.2) this.resetArrow(arrow);
+        continue;
+      }
+
+      const step = arrowFlightStep(arrow.object.position, arrow.velocity, delta);
+      arrow.object.position.set(step.position.x, step.position.y, step.position.z);
+      arrow.velocity.set(step.velocity.x, step.velocity.y, step.velocity.z);
+      if (arrow.velocity.lengthSq() > 0.001) {
+        this.arrowDirection.copy(arrow.velocity).normalize();
+        arrow.object.quaternion.setFromUnitVectors(ARROW_LOCAL_FORWARD, this.arrowDirection);
+      }
+      arrow.object.updateMatrixWorld(true);
+      this.arrowTip.set(0, 0, -ARROW_TIP_OFFSET);
+      arrow.object.localToWorld(this.arrowTip);
+
+      const damaging = canArrowDealDamage(arrow.drawDistance);
+      if (sweptSphereHit(
+        arrow.previousTip,
+        this.arrowTip,
+        { x: DUMMY_POSITION.x, y: DUMMY_POSITION.y + 0.16, z: DUMMY_POSITION.z },
+        0.5,
+      )) {
+        if (damaging) this.registerDummyHit(arrow.shooter ?? 'desktop');
+        else this.emitInteraction('A flecha atingiu o boneco sem potência suficiente para causar impacto.');
+        this.stickArrow(arrow);
+        continue;
+      }
+      if (!this.guardianVitals.defeated && sweptSphereHit(
+        arrow.previousTip,
+        this.arrowTip,
+        { x: this.guardian.position.x, y: 1.28, z: this.guardian.position.z },
+        0.62,
+      )) {
+        if (damaging) this.registerGuardianHit(arrow.shooter ?? 'desktop');
+        else this.emitInteraction('A flecha fraca ricocheteou na armadura do Guardião.');
+        this.stickArrow(arrow);
+        continue;
+      }
+      if (sweptSphereHit(arrow.previousTip, this.arrowTip, TARGET_POSITION, TARGET_RADIUS)) {
+        if (damaging) {
+          this.targetHits += 1;
+          this.targetPulseSeconds = 1;
+          this.playTone(760, 0.14, 0.075);
+          this.emitInteraction(`Alvo atingido por flecha · potência ${Math.round(bowDrawPower(arrow.drawDistance) * 100)}%.`);
+        }
+        this.stickArrow(arrow);
+        continue;
+      }
+
+      if (
+        this.arrowTip.y <= 0.035
+        || this.arrowTip.y >= 4.4
+        || this.arrowTip.x <= ROOM_BOUNDS.minX
+        || this.arrowTip.x >= ROOM_BOUNDS.maxX
+        || this.arrowTip.z <= ROOM_BOUNDS.minZ
+        || this.arrowTip.z >= ROOM_BOUNDS.maxZ
+      ) {
+        this.stickArrow(arrow);
+        continue;
+      }
+      if (arrow.lifeSeconds >= 6) {
+        this.resetArrow(arrow);
+        continue;
+      }
+      arrow.previousTip.copy(this.arrowTip);
+    }
+  }
+
+  private stickArrow(arrow: ArrowRuntime) {
+    arrow.state = 'stuck';
+    arrow.lifeSeconds = 0;
+    arrow.velocity.set(0, 0, 0);
+  }
+
+  private resetArrow(arrow: ArrowRuntime) {
+    arrow.state = 'ready';
+    arrow.lifeSeconds = 0;
+    arrow.drawDistance = 0;
+    arrow.shooter = null;
+    arrow.velocity.set(0, 0, 0);
+    arrow.object.visible = false;
+  }
+
+  private cancelBowDraw() {
+    if (this.bowDraw) this.resetArrow(this.bowDraw.arrow);
+    this.bowDraw = null;
+    this.bowPower = 0;
+    this.updateBowString(0);
+  }
+
+  private finishBowDraw(holder: Holder) {
+    const draw = this.bowDraw;
+    if (!draw || draw.drawHolder !== holder) return false;
+    if (draw.drawDistance < 0.035) {
+      this.cancelBowDraw();
+      this.emitInteraction('Corda solta sem abertura suficiente para disparar.');
+      return true;
+    }
+    const bow = this.items.get('bow')!;
+    bow.object.updateMatrixWorld(true);
+    const direction = this.arrowDirection.copy(ARROW_LOCAL_FORWARD)
+      .applyQuaternion(bow.object.getWorldQuaternion(this.worldQuaternion))
+      .normalize();
+    const speed = arrowLaunchSpeed(draw.drawDistance);
+    const arrow = draw.arrow;
+    arrow.state = 'flying';
+    arrow.lifeSeconds = 0;
+    arrow.drawDistance = draw.drawDistance;
+    arrow.shooter = draw.bowHolder;
+    arrow.velocity.copy(direction.multiplyScalar(speed));
+    arrow.object.updateMatrixWorld(true);
+    arrow.previousTip.set(0, 0, -ARROW_TIP_OFFSET);
+    arrow.object.localToWorld(arrow.previousTip);
+    this.arrowsFired += 1;
+    const power = bowDrawPower(draw.drawDistance);
+    this.bowDraw = null;
+    this.bowPower = 0;
+    this.updateBowString(0);
+    this.playTone(150 + power * 120, 0.08, 0.055);
+    this.playTone(480 + power * 260, 0.055, 0.035, 0.025);
+    this.pulseController(draw.bowHolder, 0.26 + power * 0.42, 46 + power * 48);
+    this.pulseController(draw.drawHolder, 0.2 + power * 0.36, 38 + power * 42);
+    this.emitInteraction(`Flecha disparada · ${Math.round(power * 100)}% de potência · ${speed.toFixed(1)} m/s.`);
+    return true;
   }
 
   private updateTrainingCombat(delta: number) {
@@ -2545,6 +2882,7 @@ export class OpenDungeonEngine {
         stored?.id === 'key' ? 0xffbd55
           : stored?.id === 'potion' ? 0xff6f9f
             : stored?.id === 'sword' ? 0xbfe1dc
+              : stored?.id === 'bow' ? 0xd5a86a
               : stored?.id === 'rune' ? 0x8fffe0
               : stored ? 0x73e4ca : 0x51e6b8,
       );
@@ -2650,6 +2988,7 @@ export class OpenDungeonEngine {
 
   private finishControllerGrab(holder: 'left' | 'right') {
     if (this.vrMenuSelectGuards.delete(holder) || this.vrPauseMenuOpen) return;
+    if (this.finishBowDraw(holder)) return;
     const item = this.itemForHolder(holder);
     if (!item) return;
     if (item.id === 'sword' && item.secondaryHolder === holder) {
@@ -2699,6 +3038,7 @@ export class OpenDungeonEngine {
     item.lastStoredSlot = slot;
     item.sleeping = true;
     item.velocity.set(0, 0, 0);
+    if (item.id === 'bow') this.cancelBowDraw();
     this.poseHistory.set(holder, []);
     this.gripRotationOffsets.delete(holder);
     if (item.id === 'sword') this.swordGripAnchors.clear();
@@ -2769,7 +3109,7 @@ export class OpenDungeonEngine {
       if (!controller) return item.object.position.clone();
       controller.getWorldPosition(this.worldPosition);
       controller.getWorldQuaternion(this.worldQuaternion);
-      gripPosition = new THREE.Vector3(0, 0, item.id === 'sword' ? -0.045 : -0.1)
+      gripPosition = new THREE.Vector3(0, 0, item.id === 'sword' ? -0.045 : item.id === 'bow' ? -0.06 : -0.1)
         .applyQuaternion(this.worldQuaternion)
         .add(this.worldPosition);
     }
@@ -2864,6 +3204,51 @@ export class OpenDungeonEngine {
     this.claimHeldObject('desktop', item);
   }
 
+  private startBowDraw(bowHolder: Holder, drawHolder: Holder) {
+    if (this.bowDraw) return false;
+    const arrow = this.arrows.find((candidate) => candidate.state === 'ready');
+    if (!arrow) {
+      this.emitInteraction('Todas as flechas ainda estão em voo ou cravadas.');
+      return false;
+    }
+    arrow.state = 'nocked';
+    arrow.lifeSeconds = 0;
+    arrow.drawDistance = 0;
+    arrow.shooter = bowHolder;
+    arrow.object.visible = true;
+    this.bowDraw = {
+      bowHolder,
+      drawHolder,
+      arrow,
+      drawDistance: 0,
+      lastHapticStep: 0,
+    };
+    this.playTone(350, 0.05, 0.035);
+    this.pulseController(drawHolder, 0.2, 35);
+    this.emitInteraction('Flecha encaixada · puxe a corda para trás e solte para disparar.');
+    return true;
+  }
+
+  private tryStartControllerBowDraw(drawHolder: 'left' | 'right') {
+    const bow = this.items.get('bow');
+    const bowHolder = bow?.state.holder;
+    if (!bow || (bowHolder !== 'left' && bowHolder !== 'right') || bowHolder === drawHolder || this.bowDraw) return false;
+    if (this.pullAnimation?.itemId === 'bow') return false;
+    const controller = this.controllers.get(drawHolder);
+    if (!controller) return false;
+    this.scene.updateMatrixWorld(true);
+    controller.getWorldPosition(this.handPosition);
+    const stringCenter = bow.object.localToWorld(new THREE.Vector3(0, 0, 0));
+    if (this.handPosition.distanceTo(stringCenter) > BOW_STRING_GRAB_RADIUS) return false;
+    return this.startBowDraw(bowHolder, drawHolder);
+  }
+
+  private tryStartDesktopBowDraw() {
+    const bow = this.items.get('bow');
+    if (bow?.state.holder !== 'desktop' || this.bowDraw) return false;
+    return this.startBowDraw('desktop', 'desktop');
+  }
+
   private tryControllerGrab(holder: 'left' | 'right') {
     if (this.vrPauseMenuOpen) {
       this.vrMenuSelectGuards.add(holder);
@@ -2874,6 +3259,7 @@ export class OpenDungeonEngine {
     if (this.comfort.oneHandMode && holder !== this.comfort.dominantHand) return;
     if (this.itemForHolder(holder)) return;
     if (this.tryAttachSecondarySwordGrip(holder)) return;
+    if (this.tryStartControllerBowDraw(holder)) return;
     if (this.isControllerNearWaist(holder)) {
       this.toggleBagMenu(holder);
       return;
@@ -2915,8 +3301,12 @@ export class OpenDungeonEngine {
     this.playTone(330, 0.07, 0.055);
     this.pulseController(holder, 0.26, 45);
     this.emitInteraction(holder === 'desktop'
-      ? `${item.label} em mãos · E solta, F arremessa.`
-      : `${item.label} na mão ${holder}.`);
+      ? item.id === 'bow'
+        ? 'Arco em mãos · segure K para tensionar e solte K para disparar.'
+        : `${item.label} em mãos · E solta, F arremessa.`
+      : item.id === 'bow'
+        ? `Arco na mão ${holder} · aproxime a outra mão da corda para encaixar uma flecha.`
+        : `${item.label} na mão ${holder}.`);
   }
 
   private captureGripRotation(holder: Holder, item = this.cube, preferHandle = false) {
@@ -2925,6 +3315,10 @@ export class OpenDungeonEngine {
     if (holderRotation) {
       if (item.id === 'shield') {
         this.gripRotationOffsets.delete(holder);
+        return;
+      }
+      if (item.id === 'bow') {
+        this.gripRotationOffsets.set(holder, new THREE.Quaternion());
         return;
       }
       if (item.id === 'sword') {
@@ -2945,6 +3339,7 @@ export class OpenDungeonEngine {
 
   private releaseHeldObject(holder: Holder, throwObject: boolean, item = this.itemForHolder(holder)) {
     if (!item || item.state.holder !== holder) return;
+    if (item.id === 'bow') this.cancelBowDraw();
     const wasPulling = this.pullAnimation?.holder === holder && this.pullAnimation.itemId === item.id;
     if (wasPulling) this.pullAnimation = null;
     const shouldThrow = throwObject && !wasPulling;
@@ -3009,6 +3404,7 @@ export class OpenDungeonEngine {
     const potion = this.items.get('potion')!;
     const sword = this.items.get('sword')!;
     const shield = this.items.get('shield')!;
+    const bow = this.items.get('bow')!;
     const guardianReward = this.items.get('rune')!;
     key.state = { ...INITIAL_OBJECT_STATE };
     this.targetHits = 0;
@@ -3024,6 +3420,7 @@ export class OpenDungeonEngine {
     this.resetItem(potion);
     this.resetItem(sword);
     this.resetItem(shield);
+    this.resetItem(bow);
     this.resetItem(guardianReward);
     guardianReward.object.visible = false;
     this.keyInserted = false;
@@ -3035,6 +3432,10 @@ export class OpenDungeonEngine {
     this.dummyHitPulse = 0;
     this.trainingDummy.rotation.set(0, 0, 0);
     this.swordTipReady = false;
+    this.cancelBowDraw();
+    this.arrows.forEach((arrow) => this.resetArrow(arrow));
+    this.arrowsFired = 0;
+    this.bowPower = 0;
     this.blockedAttacks = 0;
     this.receivedAttacks = 0;
     this.shieldAttackPhase = 'waiting';
@@ -3108,6 +3509,7 @@ export class OpenDungeonEngine {
       : { ...INITIAL_OBJECT_STATE, storedSlot: slot };
     item.secondaryHolder = null;
     if (item.id === 'sword') this.swordGripAnchors.clear();
+    if (item.id === 'bow') this.cancelBowDraw();
     this.poseHistory.forEach((history) => history.splice(0));
     this.gripRotationOffsets.clear();
     if (this.pullAnimation?.itemId === item.id) this.pullAnimation = null;
@@ -3138,6 +3540,8 @@ export class OpenDungeonEngine {
       maximumHealth: MAX_HEALTH,
       potionConsumed: this.potionConsumed,
       dummyHits: this.dummyHits,
+      arrowsFired: this.arrowsFired,
+      bowDrawPower: this.bowPower,
       blockedAttacks: this.blockedAttacks,
       receivedAttacks: this.receivedAttacks,
       enemyState: this.enemyState,
@@ -3168,6 +3572,11 @@ export class OpenDungeonEngine {
     const shield = this.items.get('shield');
     if (shield?.state.holder) return `Escudo em mãos · ${this.blockedAttacks} bloqueio${this.blockedAttacks === 1 ? '' : 's'} válido${this.blockedAttacks === 1 ? '' : 's'}. Oriente a face para o ataque.`;
     if (shield && shield.state.storedSlot !== null) return `Escudo guardado no slot ${shield.state.storedSlot + 1} · retire-o para treinar bloqueios.`;
+    const bow = this.items.get('bow');
+    if (this.bowDraw) return `Arco tensionado · ${Math.round(this.bowPower * 100)}% de potência.`;
+    if (bow?.state.holder === 'desktop') return `Arco em mãos · segure K para tensionar e solte K para disparar.`;
+    if (bow?.state.holder) return `Arco na mão ${bow.state.holder} · aproxime a outra mão da corda, segure e puxe para trás.`;
+    if (bow && bow.state.storedSlot !== null) return `Arco guardado no slot ${bow.state.storedSlot + 1} · retire-o para disparar.`;
     const sword = this.items.get('sword');
     if (sword?.state.holder && !this.guardianVitals.defeated) return `Espada em mãos · Guardião com vida ${this.guardianVitals.health}/${GUARDIAN_MAXIMUM_HEALTH}.`;
     if (sword?.state.holder) return `Espada em mãos · ${this.dummyHits} golpe${this.dummyHits === 1 ? '' : 's'} válido${this.dummyHits === 1 ? '' : 's'} no boneco imortal.`;

@@ -28,6 +28,10 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Albedos WebP e normal maps de 512 px, fontes originais, prompts e gerador reproduzível de texturas repetíveis.
 - Primeiro passe dos materiais aplicado ao piso, paredes, pilares, altar, pedestais e portal da sala inicial.
 - Captura `dungeon-texture-pass-v1.png` para inspeção visual da escala no cenário.
+- Arco procedural ambidestro com corda dinâmica, encaixe automático pela segunda mão e pose de pegada previsível.
+- Pool de oito flechas físicas com gravidade, orientação pela velocidade, trajetória varrida e permanência temporária no impacto.
+- Potência de disparo derivada de 8–68 cm de abertura, velocidade de 4,5–27 m/s, limiar de dano, haptics progressivos e equivalência desktop pela tecla `K`.
+- Arco integrado a puxão distante, física, recuperação e bolsa; captura visual `bow-foundation-v1.png`.
 
 ### Corrigido
 
@@ -45,6 +49,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Teste confirma o canal do braço armado, a hierarquia mão→maça, a ausência de animação conflitante na arma e a queda do quadril.
 - Testes confirmam dimensões, bordas repetíveis, consumo dos seis mapas e orçamento de download inferior a 900 KB.
 - Testes confirmam densidade física nas três orientações de caixas, pisos, laterais e tampas de cilindros.
+- Testes confirmam eixo válido da puxada, limites de abertura, curva de velocidade, limiar de dano, gravidade e progressão háptica do arco.
 
 ### Planejado
 
