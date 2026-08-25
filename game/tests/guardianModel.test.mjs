@@ -64,10 +64,12 @@ test('guardian model candidate contains valid Quest-sized LOD GLBs', async () =>
     const attack = gltf.animations.find((animation) => animation.name === 'attack_mace');
     const death = gltf.animations.find((animation) => animation.name === 'death');
     const rightUpperArmNode = gltf.nodes.findIndex((node) => node.name === 'right_upper_arm');
+    const rightHandNode = gltf.nodes.findIndex((node) => node.name === 'right_hand_bone');
     const propMaceNode = gltf.nodes.findIndex((node) => node.name === 'prop_mace');
     const hipsNode = gltf.nodes.findIndex((node) => node.name === 'hips');
     assert.ok(attack.channels.some((channel) => channel.target.node === rightUpperArmNode && channel.target.path === 'rotation'));
-    assert.ok(attack.channels.some((channel) => channel.target.node === propMaceNode && channel.target.path === 'rotation'));
+    assert.ok(gltf.nodes[rightHandNode].children.includes(propMaceNode), 'mace socket must be parented to the right hand');
+    assert.ok(!attack.channels.some((channel) => channel.target.node === propMaceNode), 'mace must inherit the hand motion without a conflicting animation track');
     assert.ok(death.channels.some((channel) => channel.target.node === hipsNode && channel.target.path === 'translation'));
     assert.ok(gltf.meshes.some((mesh) => mesh.primitives.some((primitive) => primitive.attributes.JOINTS_0 !== undefined && primitive.attributes.WEIGHTS_0 !== undefined)));
   }

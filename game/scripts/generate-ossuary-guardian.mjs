@@ -291,7 +291,6 @@ function buildAnimations(bones) {
     rotationTrack(bones.rightUpperArm, attackTimes, [[0, 0, 0.06], [-0.12, 0, 0.65], [-0.18, 0, 2.48], [-0.58, 0.04, 0.72], [-0.34, 0.02, 0.34], [0, 0, 0.06]]),
     rotationTrack(bones.rightForearm, attackTimes, [[-0.4, 0, -0.08], [-0.62, 0, -0.12], [-0.95, 0, -0.16], [-0.25, 0, -0.06], [-0.48, 0, -0.09], [-0.4, 0, -0.08]]),
     rotationTrack(bones.rightWrist, attackTimes, [[0.14, 0, 0.028], [0.22, 0, 0.03], [0.32, 0, 0.035], [0.08, 0, 0.018], [0.16, 0, 0.025], [0.14, 0, 0.028]]),
-    rotationTrack(bones.propMace, attackTimes, [[0, 0, 0], [-0.08, 0, 0.2], [-0.12, 0, 0.58], [0.15, 0, 2.78], [0.08, 0, 2.18], [0, 0, 0]]),
     rotationTrack(bones.leftUpperArm, attackTimes, [[0, 0, -0.06], [-0.18, 0, -0.14], [-0.24, 0, -0.18], [0.14, 0, -0.1], [0.06, 0, -0.08], [0, 0, -0.06]]),
     rotationTrack(bones.leftForearm, attackTimes, [[-0.4, 0, 0.08], [-0.52, 0, 0.12], [-0.58, 0, 0.14], [-0.34, 0, 0.09], [-0.38, 0, 0.08], [-0.4, 0, 0.08]]),
   ]);

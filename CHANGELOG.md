@@ -22,12 +22,13 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Juntas visíveis nos cotovelos, pulsos, joelhos e tornozelos, com participação independente no ciclo de caminhada.
 - Clavículas articuladas e braços refinados com ombros móveis, cotovelos flexionados e compensação dos pulsos.
 - Clipes `attack_mace`, `stagger` e `death` incorporados aos dois LODs e selecionáveis no visualizador.
-- Maça ligada à mão direita, com articulação própria para a cabeça ultrapassar a mão no impacto descendente.
+- Maça ligada rigidamente à mão direita para acompanhar todo o arco do braço durante o impacto descendente.
 - GIF combinado de ataque, stagger e morte para aprovação visual.
 
 ### Corrigido
 
 - Cotovelos do Guardião passam a flexionar para a frente; a compensação dos pulsos acompanha o eixo corrigido.
+- Removida a rotação independente da maça no clipe de ataque, que fazia a arma se dessincronizar da mão direita.
 
 ### Validado
 
@@ -35,7 +36,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Teste verifica cabeçalho GLB, existência dos arquivos, escala, materiais e orçamento dos dois LODs.
 - Teste abre o conteúdo dos GLBs e confirma skins, pesos, ossos obrigatórios, sockets e os cinco clipes de animação.
 - Teste lê os quaternions exportados e impede regressão da direção anatômica dos cotovelos.
-- Teste confirma canais próprios do braço armado, da maça e da queda do quadril.
+- Teste confirma o canal do braço armado, a hierarquia mão→maça, a ausência de animação conflitante na arma e a queda do quadril.
 
 ### Planejado
 
