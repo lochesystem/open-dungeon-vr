@@ -13,6 +13,16 @@ function glbJson(file) {
   return JSON.parse(file.subarray(20, 20 + jsonChunkLength).toString('utf8').trim());
 }
 
+function accessorFloats(file, gltf, accessorIndex) {
+  const jsonChunkLength = file.readUInt32LE(12);
+  const binaryDataOffset = 20 + jsonChunkLength + 8;
+  const accessor = gltf.accessors[accessorIndex];
+  const bufferView = gltf.bufferViews[accessor.bufferView];
+  const componentCount = accessor.type === 'VEC4' ? 4 : 1;
+  const offset = binaryDataOffset + (bufferView.byteOffset ?? 0) + (accessor.byteOffset ?? 0);
+  return Array.from({ length: accessor.count * componentCount }, (_, index) => file.readFloatLE(offset + index * 4));
+}
+
 test('guardian model candidate contains valid Quest-sized LOD GLBs', async () => {
   const report = JSON.parse(await readFile(resolve(modelDirectory, 'qa-report.json'), 'utf8'));
   const lod0 = report.lods.lod0;
@@ -42,6 +52,13 @@ test('guardian model candidate contains valid Quest-sized LOD GLBs', async () =>
     const nodeNames = new Set(gltf.nodes.map((node) => node.name));
     for (const requiredBone of ['rig_root', 'hips', 'chest', 'head', 'left_clavicle', 'right_clavicle', 'left_wrist', 'right_wrist', 'left_ankle', 'right_ankle', 'left_hand_bone', 'right_hand_bone', 'socket_weapon_right', 'socket_memory_rune']) {
       assert.ok(nodeNames.has(requiredBone), `missing rig node ${requiredBone}`);
+    }
+    const leftForearmNode = gltf.nodes.findIndex((node) => node.name === 'left_forearm');
+    for (const animation of gltf.animations) {
+      const channel = animation.channels.find((candidate) => candidate.target.node === leftForearmNode && candidate.target.path === 'rotation');
+      assert.ok(channel, `${animation.name} must articulate the left elbow`);
+      const quaternionValues = accessorFloats(file, gltf, animation.samplers[channel.sampler].output);
+      assert.ok(quaternionValues[0] < 0, `${animation.name} elbow must bend toward the front of the model`);
     }
     assert.ok(gltf.meshes.some((mesh) => mesh.primitives.some((primitive) => primitive.attributes.JOINTS_0 !== undefined && primitive.attributes.WEIGHTS_0 !== undefined)));
   }

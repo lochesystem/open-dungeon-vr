@@ -249,10 +249,10 @@ function buildAnimations(bones) {
     rotationTrack(bones.rightClavicle, idleTimes, [[0, 0, -0.015], [0, 0.018, -0.03], [0, 0, -0.015]]),
     rotationTrack(bones.leftUpperArm, idleTimes, [[0, 0, 0], [0.025, 0, -0.02], [0, 0, 0]]),
     rotationTrack(bones.rightUpperArm, idleTimes, [[0, 0, 0], [-0.025, 0, 0.02], [0, 0, 0]]),
-    rotationTrack(bones.leftForearm, idleTimes, [[0.34, 0, 0.075], [0.38, 0, 0.09], [0.34, 0, 0.075]]),
-    rotationTrack(bones.rightForearm, idleTimes, [[0.34, 0, -0.075], [0.38, 0, -0.09], [0.34, 0, -0.075]]),
-    rotationTrack(bones.leftWrist, idleTimes, [[-0.12, 0, -0.025], [-0.14, 0, -0.025], [-0.12, 0, -0.025]]),
-    rotationTrack(bones.rightWrist, idleTimes, [[-0.12, 0, 0.025], [-0.14, 0, 0.025], [-0.12, 0, 0.025]]),
+    rotationTrack(bones.leftForearm, idleTimes, [[-0.34, 0, 0.075], [-0.38, 0, 0.09], [-0.34, 0, 0.075]]),
+    rotationTrack(bones.rightForearm, idleTimes, [[-0.34, 0, -0.075], [-0.38, 0, -0.09], [-0.34, 0, -0.075]]),
+    rotationTrack(bones.leftWrist, idleTimes, [[0.12, 0, -0.025], [0.14, 0, -0.025], [0.12, 0, -0.025]]),
+    rotationTrack(bones.rightWrist, idleTimes, [[0.12, 0, 0.025], [0.14, 0, 0.025], [0.12, 0, 0.025]]),
   ]);
 
   const walkTimes = Array.from({ length: 9 }, (_, index) => index * 0.1);
@@ -274,10 +274,10 @@ function buildAnimations(bones) {
     rotationTrack(bones.rightClavicle, walkTimes, walkTimes.map((time) => [0, -Math.sin(phaseAt(time)) * 0.035, -0.02 - Math.sin(phaseAt(time) * 2) * 0.018])),
     rotationTrack(bones.leftUpperArm, walkTimes, walkTimes.map((time) => [Math.sin(phaseAt(time) + Math.PI) * 0.4, Math.sin(phaseAt(time)) * 0.035, -0.06])),
     rotationTrack(bones.rightUpperArm, walkTimes, walkTimes.map((time) => [Math.sin(phaseAt(time)) * 0.4, -Math.sin(phaseAt(time)) * 0.035, 0.06])),
-    rotationTrack(bones.leftForearm, walkTimes, walkTimes.map((time) => [0.4 + Math.max(0, Math.sin(phaseAt(time))) * 0.28, 0, 0.08 + Math.abs(Math.sin(phaseAt(time))) * 0.035])),
-    rotationTrack(bones.rightForearm, walkTimes, walkTimes.map((time) => [0.4 + Math.max(0, Math.sin(phaseAt(time) + Math.PI)) * 0.28, 0, -0.08 - Math.abs(Math.sin(phaseAt(time))) * 0.035])),
-    rotationTrack(bones.leftWrist, walkTimes, walkTimes.map((time) => [-0.14 - Math.max(0, Math.sin(phaseAt(time))) * 0.08, 0, -0.028])),
-    rotationTrack(bones.rightWrist, walkTimes, walkTimes.map((time) => [-0.14 - Math.max(0, Math.sin(phaseAt(time) + Math.PI)) * 0.08, 0, 0.028])),
+    rotationTrack(bones.leftForearm, walkTimes, walkTimes.map((time) => [-0.4 - Math.max(0, Math.sin(phaseAt(time))) * 0.28, 0, 0.08 + Math.abs(Math.sin(phaseAt(time))) * 0.035])),
+    rotationTrack(bones.rightForearm, walkTimes, walkTimes.map((time) => [-0.4 - Math.max(0, Math.sin(phaseAt(time) + Math.PI)) * 0.28, 0, -0.08 - Math.abs(Math.sin(phaseAt(time))) * 0.035])),
+    rotationTrack(bones.leftWrist, walkTimes, walkTimes.map((time) => [0.14 + Math.max(0, Math.sin(phaseAt(time))) * 0.08, 0, -0.028])),
+    rotationTrack(bones.rightWrist, walkTimes, walkTimes.map((time) => [0.14 + Math.max(0, Math.sin(phaseAt(time) + Math.PI)) * 0.08, 0, 0.028])),
     rotationTrack(bones.chest, walkTimes, walkTimes.map((time) => [0, Math.sin(phaseAt(time)) * 0.045, Math.sin(phaseAt(time) * 2) * 0.012])),
     rotationTrack(bones.head, walkTimes, walkTimes.map((time) => [0, -Math.sin(phaseAt(time)) * 0.025, 0])),
   ]);

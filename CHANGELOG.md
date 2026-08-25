@@ -22,11 +22,16 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Juntas visíveis nos cotovelos, pulsos, joelhos e tornozelos, com participação independente no ciclo de caminhada.
 - Clavículas articuladas e braços refinados com ombros móveis, cotovelos flexionados e compensação dos pulsos.
 
+### Corrigido
+
+- Cotovelos do Guardião passam a flexionar para a frente; a compensação dos pulsos acompanha o eixo corrigido.
+
 ### Validado
 
 - LOD0 possui 4.498 triângulos e LOD1 possui 1.886, redução de aproximadamente 58%.
 - Teste verifica cabeçalho GLB, existência dos arquivos, escala, materiais e orçamento dos dois LODs.
 - Teste abre o conteúdo dos GLBs e confirma skins, pesos, ossos obrigatórios, sockets e os dois clipes de animação.
+- Teste lê os quaternions exportados e impede regressão da direção anatômica dos cotovelos.
 
 ### Planejado
 

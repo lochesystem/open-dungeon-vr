@@ -1,6 +1,6 @@
 {
   "id": "enemy_ossuary_guardian_v1",
-  "generatedAt": "2026-08-24T23:59:05.262Z",
+  "generatedAt": "2026-08-25T00:08:14.622Z",
   "generator": "scripts/generate-ossuary-guardian.mjs",
   "concept": "../../../concepts/ossuary-guardian-v1/ossuary-guardian-turnaround-v1.png",
   "targetRig": "humanoid_large_v1",
