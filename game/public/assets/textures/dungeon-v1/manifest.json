@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "size": 512,
+  "materials": {
+    "stone-wall": {
+      "source": "../../../../assets/textures/dungeon-v1/source/stone-wall-ai-source.png",
+      "albedo": "stone-wall-albedo.webp",
+      "normal": "stone-wall-normal.png",
+      "albedoBytes": 36394,
+      "normalBytes": 316666
+    },
+    "flagstone-floor": {
+      "source": "../../../../assets/textures/dungeon-v1/source/flagstone-floor-ai-source.png",
+      "albedo": "flagstone-floor-albedo.webp",
+      "normal": "flagstone-floor-normal.png",
+      "albedoBytes": 9652,
+      "normalBytes": 193368
+    },
+    "aged-bronze": {
+      "source": "../../../../assets/textures/dungeon-v1/source/aged-bronze-ai-source.png",
+      "albedo": "aged-bronze-albedo.webp",
+      "normal": "aged-bronze-normal.png",
+      "albedoBytes": 25994,
+      "normalBytes": 197206
+    }
+  }
+}

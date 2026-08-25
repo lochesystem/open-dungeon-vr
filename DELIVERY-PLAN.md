@@ -378,6 +378,16 @@ O jogador enfrenta o **Guardião Ossário** numa arena curta. O inimigo patrulha
 
 ## 8. D5 — Primeira sala completa
 
+### D5.1 — Primeiro passe de materiais da cripta
+
+- [x] Gerar fontes FULL IA próprias para parede, piso e bronze envelhecido.
+- [x] Versionar prompts, fontes e pipeline reproduzível de pós-processamento.
+- [x] Produzir albedo e normal maps repetíveis em 512×512 para o Meta Quest.
+- [x] Aplicar escala física distinta a piso, paredes e estruturas do blockout.
+- [x] Remover a grade visual da fundação sem alterar colisores ou navegação.
+- [x] Limitar o pacote servido a menos de 900 KB e validar dimensões e bordas automaticamente.
+- [ ] Homologar legibilidade, repetição e intensidade dos normals dentro do Meta Quest.
+
 ### Experiência
 
 O jogador recebe um contrato de relicário, abre uma porta física, explora uma sala ambientada, enfrenta o Guardião, encontra a relíquia, guarda-a e ativa o portal de extração. O resultado informa tempo, dano e objetivo.

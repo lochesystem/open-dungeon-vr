@@ -278,6 +278,7 @@ export class OpenDungeonEngine {
   private readonly options: EngineOptions;
   private readonly disposableGeometries = new Set<THREE.BufferGeometry>();
   private readonly disposableMaterials = new Set<THREE.Material>();
+  private readonly disposableTextures = new Set<THREE.Texture>();
   private readonly collisionDebug = new THREE.Group();
   private readonly playerColliderDebug = new THREE.Mesh();
   private readonly worldPosition = new THREE.Vector3();
@@ -567,6 +568,7 @@ export class OpenDungeonEngine {
     }
     this.disposableGeometries.forEach((geometry) => geometry.dispose());
     this.disposableMaterials.forEach((material) => material.dispose());
+    this.disposableTextures.forEach((texture) => texture.dispose());
     this.vrPauseTexture.dispose();
     this.renderer.dispose();
     void this.audioContext?.close();
@@ -597,6 +599,19 @@ export class OpenDungeonEngine {
     const material = new THREE.MeshStandardMaterial(parameters);
     this.disposableMaterials.add(material);
     return material;
+  }
+
+  private surfaceTexture(file: string, repeatX: number, repeatY: number, color = false) {
+    const texture = new THREE.TextureLoader().load(
+      new URL(`assets/textures/dungeon-v1/${file}`, document.baseURI).toString(),
+    );
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(repeatX, repeatY);
+    texture.colorSpace = color ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+    texture.anisotropy = Math.min(this.renderer.capabilities.getMaxAnisotropy(), this.quest ? 4 : 8);
+    this.disposableTextures.add(texture);
+    return texture;
   }
 
   private basicMaterial(parameters: THREE.MeshBasicMaterialParameters) {
@@ -675,11 +690,14 @@ export class OpenDungeonEngine {
   }
 
   private buildRoom() {
+    const floorAlbedo = this.surfaceTexture('flagstone-floor-albedo.webp', 3.5, 3.5, true);
+    const floorNormal = this.surfaceTexture('flagstone-floor-normal.png', 3.5, 3.5);
     const floorMaterial = this.material({
-      color: 0x35423d,
-      emissive: 0x081713,
-      emissiveIntensity: 0.72,
-      roughness: 0.92,
+      color: 0xd8dfdc,
+      map: floorAlbedo,
+      normalMap: floorNormal,
+      normalScale: new THREE.Vector2(0.46, 0.46),
+      roughness: 0.94,
       metalness: 0.04,
       side: THREE.DoubleSide,
     });
@@ -687,19 +705,38 @@ export class OpenDungeonEngine {
     floor.rotation.x = -Math.PI / 2;
     this.scene.add(floor);
 
-    const grid = new THREE.GridHelper(24, 24, 0x69e8c2, 0x294c43);
-    grid.position.y = 0.008;
-    const gridMaterials = Array.isArray(grid.material) ? grid.material : [grid.material];
-    gridMaterials.forEach((material) => {
-      material.transparent = true;
-      material.opacity = 0.64;
-      this.disposableMaterials.add(material);
+    const stone = this.material({
+      color: 0xd8ddd6,
+      map: this.surfaceTexture('stone-wall-albedo.webp', 0.42, 0.9, true),
+      normalMap: this.surfaceTexture('stone-wall-normal.png', 0.42, 0.9),
+      normalScale: new THREE.Vector2(0.38, 0.38),
+      roughness: 0.9,
+      metalness: 0.02,
     });
-    this.disposableGeometries.add(grid.geometry);
-    this.scene.add(grid);
-
-    const stone = this.material({ color: 0x4b514a, roughness: 0.8, metalness: 0.08 });
-    const bronze = this.material({ color: 0x8b5b2f, roughness: 0.42, metalness: 0.65 });
+    const wallStone = this.material({
+      color: 0xd8ddd6,
+      map: this.surfaceTexture('stone-wall-albedo.webp', 2.5, 0.9, true),
+      normalMap: this.surfaceTexture('stone-wall-normal.png', 2.5, 0.9),
+      normalScale: new THREE.Vector2(0.42, 0.42),
+      roughness: 0.91,
+      metalness: 0.02,
+    });
+    const lintelStone = this.material({
+      color: 0xd8ddd6,
+      map: this.surfaceTexture('stone-wall-albedo.webp', 1.25, 0.35, true),
+      normalMap: this.surfaceTexture('stone-wall-normal.png', 1.25, 0.35),
+      normalScale: new THREE.Vector2(0.4, 0.4),
+      roughness: 0.91,
+      metalness: 0.02,
+    });
+    const bronze = this.material({
+      color: 0xc8a37b,
+      map: this.surfaceTexture('aged-bronze-albedo.webp', 2, 2, true),
+      normalMap: this.surfaceTexture('aged-bronze-normal.png', 2, 2),
+      normalScale: new THREE.Vector2(0.3, 0.3),
+      roughness: 0.56,
+      metalness: 0.72,
+    });
     const rune = this.material({ color: 0x40e0b4, emissive: 0x18b992, emissiveIntensity: 2.2, roughness: 0.2 });
 
     const pillarGeometry = this.geometry(new THREE.BoxGeometry(1.7, 4.4, 1.7));
@@ -713,12 +750,12 @@ export class OpenDungeonEngine {
     const longWall = this.geometry(new THREE.BoxGeometry(24, 4.4, 0.6));
     const sideWall = this.geometry(new THREE.BoxGeometry(0.6, 4.4, 24));
     for (const z of [ROOM_BOUNDS.minZ - 0.3, ROOM_BOUNDS.maxZ + 0.3]) {
-      const wall = new THREE.Mesh(longWall, stone);
+      const wall = new THREE.Mesh(longWall, wallStone);
       wall.position.set(0, 2.2, z);
       this.scene.add(wall);
     }
     for (const x of [ROOM_BOUNDS.minX - 0.3, ROOM_BOUNDS.maxX + 0.3]) {
-      const wall = new THREE.Mesh(sideWall, stone);
+      const wall = new THREE.Mesh(sideWall, wallStone);
       wall.position.set(x, 2.2, 0);
       this.scene.add(wall);
     }
@@ -731,7 +768,7 @@ export class OpenDungeonEngine {
       post.position.set(x, 2.3, 0);
       arch.add(post);
     }
-    const top = new THREE.Mesh(topGeometry, stone);
+    const top = new THREE.Mesh(topGeometry, lintelStone);
     top.position.y = 4.45;
     arch.add(top);
 

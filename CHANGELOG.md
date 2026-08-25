@@ -24,6 +24,10 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Clipes `attack_mace`, `stagger` e `death` incorporados aos dois LODs e selecionáveis no visualizador.
 - Maça ligada rigidamente à mão direita para acompanhar todo o arco do braço durante o impacto descendente.
 - GIF combinado de ataque, stagger e morte para aprovação visual.
+- Kit FULL IA `dungeon-v1` com alvenaria ossuária, lajes de piso e bronze envelhecido.
+- Albedos WebP e normal maps de 512 px, fontes originais, prompts e gerador reproduzível de texturas repetíveis.
+- Primeiro passe dos materiais aplicado ao piso, paredes, pilares, altar, pedestais e portal da sala inicial.
+- Captura `dungeon-texture-pass-v1.png` para inspeção visual da escala no cenário.
 
 ### Corrigido
 
@@ -37,6 +41,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Teste abre o conteúdo dos GLBs e confirma skins, pesos, ossos obrigatórios, sockets e os cinco clipes de animação.
 - Teste lê os quaternions exportados e impede regressão da direção anatômica dos cotovelos.
 - Teste confirma o canal do braço armado, a hierarquia mão→maça, a ausência de animação conflitante na arma e a queda do quadril.
+- Testes confirmam dimensões, bordas repetíveis, consumo dos seis mapas e orçamento de download inferior a 900 KB.
 
 ### Planejado
 
